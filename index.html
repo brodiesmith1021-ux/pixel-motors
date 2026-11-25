@@ -1252,7 +1252,8 @@ const PERF = {
   engine: { n: 'Engine', icon: 'engine', lv: [{ n: 'Stock' }, { n: 'Street Tune', v: 0.12, c: 1200 }, { n: 'Cams & Intake', v: 0.25, c: 3500 }, { n: 'Forged Internals', v: 0.42, c: 9000 }, { n: 'Race Block', v: 0.65, c: 20000 }, { n: 'Monster Build', v: 0.9, c: 42000 }] },
   turbo: { n: 'Turbo', icon: 'turbo', lv: [{ n: 'None/Stock' }, { n: 'Small Turbo', v: 0.28, c: 2500 }, { n: 'Big Single', v: 0.5, c: 7500 }, { n: 'Twin Turbo', v: 0.8, c: 16000 }, { n: 'Compound Turbos', v: 1.05, c: 32000 }] },
   tires: { n: 'Tires', icon: 'tire', lv: [{ n: 'Street', v: 0.92 }, { n: 'Sport', v: 1.0, c: 600 }, { n: 'Semi-Slick', v: 1.14, c: 1600 }, { n: 'Drag Radials', v: 1.4, c: 3500 }, { n: 'Pro Slicks', v: 1.55, c: 7500 }] },
-  trans: { n: 'Gearbox', icon: 'gear', lv: [{ n: 'Stock', v: 0.40 }, { n: 'Short Shifter', v: 0.26, c: 1500 }, { n: 'Sequential', v: 0.12, c: 7000 }, { n: 'Dog Box', v: 0.07, c: 15000 }] },
+  trans: { n: 'Shift Speed', icon: 'gear', lv: [{ n: 'Stock', v: 0.40 }, { n: 'Short Shifter', v: 0.26, c: 1500 }, { n: 'Sequential', v: 0.12, c: 7000 }, { n: 'Dog Box', v: 0.07, c: 15000 }] },
+  gears: { n: 'Gear Count', icon: 'gear', lv: [{ n: 'Factory Gearbox' }, { n: '3-Speed', g: 3, c: 2500 }, { n: '4-Speed', g: 4, c: 4000 }, { n: '5-Speed', g: 5, c: 6000 }, { n: '6-Speed', g: 6, c: 8500 }, { n: '7-Speed', g: 7, c: 12000 }, { n: '8-Speed', g: 8, c: 16000 }] },
   susp: { n: 'Suspension', icon: 'susp', lv: [{ n: 'Stock', v: 1.0 }, { n: 'Coilovers', v: 1.06, c: 1200 }, { n: 'Drag Setup', v: 1.14, c: 3800 }, { n: 'Wheelie Bars', v: 1.22, c: 8000 }] },
   exhaust: { n: 'Exhaust', icon: 'exhaust', lv: [{ n: 'Stock', v: 1.0 }, { n: 'Sport Cat-Back', v: 1.05, c: 800 }, { n: 'Straight Pipe', v: 1.1, c: 2600 }] },
   weight: { n: 'Weight', icon: 'weight', lv: [{ n: 'Stock', v: 1.0 }, { n: 'Stripped Interior', v: 0.94, c: 1000 }, { n: 'Carbon Panels', v: 0.88, c: 4500 }, { n: 'Race Shell', v: 0.8, c: 10000 }, { n: 'Tube Chassis', v: 0.72, c: 24000 }] },
@@ -2676,7 +2677,7 @@ function condScore(car) {
 }
 function upgValue(car) {
   let v = 0;
-  for (const k of PERF_KEYS) { const lv = car.up[k] | 0; for (let i = 1; i <= lv; i++) v += upgCost(car, k, i); }
+  for (const k of PERF_KEYS) { const lv = car.up[k] | 0; if (k === 'gears' || k === 'swap') { if (lv) v += upgCost(car, k, lv); continue; } for (let i = 1; i <= lv; i++) v += upgCost(car, k, i); }
   return v;
 }
 function carValue(car) {
@@ -2732,7 +2733,8 @@ function perf(car, override) {
   const P = hp * 745.7 * 0.92;
   const k = 0.5 * 1.2 * cdaE + 0.02;
   const vTop = Math.cbrt(P / k);
-  const ratios = GEARSETS[M.gears] || GEARSETS[6];
+  const gN = !M.jet && up.gears ? PERF.gears.lv[up.gears].g : M.gears;
+  const ratios = GEARSETS[gN] || GEARSETS[6];
   const r = 0.32, wRed = RL * TAU / 60;
   const final = clamp(wRed * r / (vTop * 1.04 * ratios[ratios.length - 1]), 2.2, 9) * (tune.fd || 1);
   let traction = grip * 9.81 * wt * split * 1.3; // prepped drag strip surface
@@ -3913,6 +3915,7 @@ function customizeScene(car) {
   function ownedKey(v) { return (tab === 'looks' ? 'L_' : 'P_') + cat + '_' + v; }
   function isFree(o) {
     if (tab === 'looks') { const cur = lookOf(car)[cat]; return o.v === cur || o.c === 0 || car.owned[ownedKey(o.v)]; }
+    if (cat === 'gears') return o.v === 0 || o.v === (car.up.gears | 0) || !!car.owned[ownedKey(o.v)];
     return o.v <= (car.up[cat] | 0) || o.c === 0 || car.owned[ownedKey(o.v)];
   }
   function prizeIdx(o) { return tab === 'perf' ? S.parts.findIndex(p => p.k === cat && p.lv === o.v) : -1; }
@@ -3966,7 +3969,7 @@ function customizeScene(car) {
       text('NOS ' + p1.nos, 172, 154, p1.nos ? PAL.teal : PAL.dim);
       // category icon row
       const isBike = !!MODELS[car.model].bike;
-      const cats = tab === 'looks' ? LOOK_CATS.filter(c => (!c.truck || MODELS[car.model].truck) && (!c.bike || isBike) && (!isBike || ['paint', 'rim', 'rimCol', 'decal', 'decalCol', 'glow', 'tint', 'suit'].includes(c.k)) && (!MODELS[car.model].nitro || ['paint', 'rim', 'rimCol', 'decal', 'decalCol', 'glow', 'tint'].includes(c.k))) : PERF_KEYS.filter(k => (!isBike || (k !== 'swap' && k !== 'diff')) && (!MODELS[car.model].nitro || k !== 'swap')).map(k => ({ k, n: PERF[k].n.toUpperCase(), icon: PERF[k].icon }));
+      const cats = tab === 'looks' ? LOOK_CATS.filter(c => (!c.truck || MODELS[car.model].truck) && (!c.bike || isBike) && (!isBike || ['paint', 'rim', 'rimCol', 'decal', 'decalCol', 'glow', 'tint', 'suit'].includes(c.k)) && (!MODELS[car.model].nitro || ['paint', 'rim', 'rimCol', 'decal', 'decalCol', 'glow', 'tint'].includes(c.k))) : PERF_KEYS.filter(k => (!isBike || (k !== 'swap' && k !== 'diff')) && (!MODELS[car.model].nitro || k !== 'swap') && (!MODELS[car.model].jet || k !== 'gears')).map(k => ({ k, n: PERF[k].n.toUpperCase(), icon: PERF[k].icon }));
       cats.forEach((c, i) => {
         const two = cats.length > 9, per = two ? 7 : 9;
         const bx = 4 + (i % per) * (two ? 29.5 : 23), by = two ? 173 + Math.floor(i / per) * 12 : 174;
@@ -3975,7 +3978,7 @@ function customizeScene(car) {
       // options panel
       const catInfo = cats.find(c => c.k === cat) || cats[0];
       panel(214, 32, 168, 164, { title: catInfo.n });
-      const opts = tab === 'looks' ? lookOptions(cat) : PERF[cat].lv.map((l, i) => ({ v: i, n: l.n, c: upgCost(car, cat, i), d: perfDesc(cat, i) }));
+      const opts = tab === 'looks' ? lookOptions(cat) : PERF[cat].lv.map((l, i) => ({ v: i, n: cat === 'gears' && !i ? 'Factory (' + MODELS[car.model].gears + '-Speed)' : l.n, c: upgCost(car, cat, i), d: perfDesc(cat, i) })).filter(o => cat !== 'gears' || !o.v || PERF.gears.lv[o.v].g !== MODELS[car.model].gears);
       const cur = tab === 'looks' ? lookOf(car)[cat] : (car.up[cat] | 0);
       if (tab === 'looks' && (cat === 'paint' || cat === 'rimCol' || cat === 'decalCol')) {
         opts.forEach((o, i) => {
@@ -4030,6 +4033,7 @@ function perfDesc(k, i) {
     case 'clutch': return i ? 'WIDER LAUNCH ZONE, LESS WHEELSPIN' : '';
     case 'diff': return i ? '+' + Math.round((l.v - 1) * 100) + '% TRACTION' : '';
     case 'swap': return i ? l.hp + 'HP ' + (l.ev ? 'ELECTRIC' : l.cyl + ' CYL') + (l.turbo ? ' TURBO' : '') : 'FACTORY ENGINE';
+    case 'gears': return i ? PERF.gears.lv[i].g + ' GEARS: ' + (PERF.gears.lv[i].g <= 4 ? 'FEWER SHIFTS, BIG RPM DROPS' : PERF.gears.lv[i].g >= 7 ? 'ALWAYS IN THE POWERBAND' : 'BALANCED') : 'KEEP THE FACTORY GEARBOX';
     case 'nos': return i ? l.v + ' BOOST' + (l.v > 1 ? 'S' : '') + ' PER RACE' : '';
   }
   return '';
