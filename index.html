@@ -482,6 +482,12 @@ const audio = {
       this.sfxG = this.ac.createGain();
       const lim = this.ac.createDynamicsCompressor(); lim.threshold.value = -8; lim.knee.value = 6; lim.ratio.value = 12; lim.attack.value = 0.003; lim.release.value = 0.15;
       this.sfxG.connect(lim); lim.connect(this.master);
+      // small outdoor space: a few early reflections off walls/grandstands + a short diffuse tail
+      try {
+        const sr = this.ac.sampleRate, L = Math.floor(sr * 0.9), ir = this.ac.createBuffer(2, L, sr);
+        for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); let lp = 0; for (let i = 0; i < L; i++) { const t = i / sr; lp += ((Math.random() * 2 - 1) - lp) * 0.35; d[i] = lp * Math.exp(-t / 0.22) * 0.5; } for (const [ms, g] of [[11, 0.5], [23, 0.35], [37, 0.28], [58, 0.2], [83, 0.12]]) d[Math.floor(ms * (ch ? 1.07 : 1) * sr / 1000)] += g; }
+        this.rev = this.ac.createConvolver(); this.rev.buffer = ir; this.revG = this.ac.createGain(); this.revG.gain.value = 0.55; this.rev.connect(this.revG); this.revG.connect(this.sfxG);
+      } catch (e) { this.rev = null; }
       const len = this.ac.sampleRate * 1.5; this.noiseBuf = this.ac.createBuffer(1, len, this.ac.sampleRate);
       const d = this.noiseBuf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
       this.ok = true; this.applyVol();
@@ -565,7 +571,11 @@ registerProcessor('pm-engine', PMEngine);`;
   engine(volMul = 1, profName = 'i4') {
     if (!this.ok) return null;
     const ac = this.ac, P = ENGINE_SOUNDS[profName] || ENGINE_SOUNDS.i4;
-    const out = ac.createGain(); out.gain.value = 0; out.connect(this.sfxG);
+    const out = ac.createGain(); out.gain.value = 0;
+    const dist = ac.createGain(); out.connect(dist);
+    const pan = ac.createStereoPanner ? ac.createStereoPanner() : null;
+    if (pan) { dist.connect(pan); pan.connect(this.sfxG); } else dist.connect(this.sfxG);
+    if (this.rev) { const rs = ac.createGain(); rs.gain.value = 0.22; dist.connect(rs); rs.connect(this.rev); }
     const nodes = [];
     let feed = null, lp = null, evo = null;
     let jet = null;
@@ -609,12 +619,17 @@ registerProcessor('pm-engine', PMEngine);`;
     const sqf = ac.createBiquadFilter(); sqf.type = 'bandpass'; sqf.frequency.value = 1100; sqf.Q.value = 18;
     const sqf2 = ac.createBiquadFilter(); sqf2.type = 'peaking'; sqf2.frequency.value = 2200; sqf2.Q.value = 12; sqf2.gain.value = 10;
     const sqg = ac.createGain(); sqg.gain.value = 0; sq.connect(sqf); sqf.connect(sqf2); sqf2.connect(sqg); sqg.connect(this.sfxG); sq.start(); nodes.push(sq);
+    // road noise: tyre roar and wind rush that grow with speed (only when a speed is given, i.e. while racing)
+    const mkRoad = (type, f, q) => { const s = ac.createBufferSource(); s.buffer = this.noiseBuf; s.loop = true; const fl = ac.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q; const g = ac.createGain(); g.gain.value = 0; s.connect(fl); fl.connect(g); g.connect(dist); s.start(0, Math.random()); nodes.push(s); return [fl, g]; };
+    const tyre = mkRoad('lowpass', 220, 0.9), wind = mkRoad('bandpass', 500, 0.6);
     let lastLoad = 0, lastPop = 0;
     const self = this;
     return {
       prof: profName,
-      set(rpm, load, cyl, turbo = 0, squeal = 0) {
+      setPan(p, g = 1) { const t = ac.currentTime; if (pan) pan.pan.setTargetAtTime(Math.max(-0.9, Math.min(0.9, p)), t, 0.05); dist.gain.setTargetAtTime(g, t, 0.05); },
+      set(rpm, load, cyl, turbo = 0, squeal = 0, speed = 0) {
         const t = ac.currentTime, rf = rpm / (P.red || 7000);
+        const sv = Math.min(1.4, speed / 90); tyre[1].gain.setTargetAtTime(sv * 0.07 * volMul, t, 0.1); wind[1].gain.setTargetAtTime(sv * sv * 0.11 * volMul, t, 0.1); wind[0].frequency.setTargetAtTime(350 + speed * 9, t, 0.1);
         if (feed) feed(Math.max(P.idle * 0.85, rpm), load);
         out.gain.setTargetAtTime((P.vol || 1) * (0.32 + load * 0.3) * volMul, t, 0.05);
         if (lp) lp.frequency.setTargetAtTime(P.lp + rf * P.lpRpm + load * P.lpLoad, t, 0.04);
@@ -736,68 +751,113 @@ const ENGINE_SOUNDS = {
 };
 function startSfx(car) { const p = ENGINE_SOUNDS[soundProfile(car)]; audio.sfx(p.jet ? 'jetStart' : p.ev ? 'evOn' : p.diesel ? 'startDiesel' : 'start'); }
 function soundProfile(car) {
-  if (MODELS[car.model].snd) return MODELS[car.model].snd;
-  const M = MODELS[car.model], E = engineSpec(car), sw = (car.up && car.up.swap) | 0;
+  const M = MODELS[car.model];
+  if (M.snd) return M.snd;
+  const E = engineSpec(car), sw = (car.up && car.up.swap) | 0, loud = ((car.up && car.up.exhaust) | 0) >= 2, cls = M.cls || '';
   if (E.ev) return M.bike ? 'ev_bike' : 'ev';
-  if (E.diesel) return E.cyl === 6 || car.model === 'diesel89' ? 'diesel6' : 'diesel';
+  if (E.diesel) return loud ? 'dieselpipe' : E.cyl === 6 || car.model === 'diesel89' ? 'diesel6' : 'diesel';
   if (M.bike && !sw) {
     if (car.model === 'topfuel' || car.model === 'probike') return 'topfuel';
     if (E.cyl === 1) return 'single';
     if (E.cyl === 2) return M.make === 'Ironclad' ? 'vtwin45' : 'ltwin';
-    return M.turbo ? 'bike4sc' : 'bike4';
+    if (E.cyl === 3) return 'triple';
+    if (M.turbo || /Supercharged/.test(cls)) return 'bike4sc';
+    return /MotoGP|Hyper/.test(cls) ? 'cross4' : 'bike4';
   }
-  const c = E.cyl;
+  const c = E.cyl, turbo = !!E.turbo;
+  if (M.truck && c === 8) return loud ? 'v8pipe' : 'v8truck';
   if (c <= 3) return 'i3';
-  if (c === 4) return car.model === 'raiden' && !sw ? 'rotary' : 'i4';
-  if (c === 6) return !sw && M.make === 'Bauer' && /kreis|blitz/.test(car.model) ? 'flat6' : 'i6';
-  if (c === 8) return !sw && ['Stellara', 'Albion', 'Bauer', 'Marlow', 'Kestrel'].includes(M.make) ? 'v8flat' : 'v8cross';
+  if (c === 4) { if (car.model === 'raiden' && !sw) return 'rotary'; if (turbo && M.drive === 'AWD') return 'boxer4'; if (turbo) return 'i4turbo'; return E.rl >= 8000 ? 'i4vtec' : 'i4'; }
+  if (c === 5) return 'i5';
+  if (c === 6) { if (!sw && M.make === 'Bauer' && /kreis|blitz/.test(car.model)) return 'flat6'; if (turbo) return M.drive === 'AWD' ? 'v6tt' : 'i6turbo'; return /Sedan|Wagon/.test(cls) ? 'v6' : 'i6'; }
+  if (c === 8) {
+    if (M.blower || ENGINE_SOUNDS.blown8 && /Supercharged/.test(cls)) return 'blown8';
+    if (!sw && ['Stellara', 'Albion', 'Bauer', 'Marlow', 'Kestrel'].includes(M.make)) return 'v8flat';
+    if (/Muscle|Classic|Pony/.test(cls)) return loud ? 'v8pipe' : 'v8cam';
+    return loud ? 'v8pipe' : 'v8cross';
+  }
   if (c === 10) return 'v10';
-  return 'v12';
+  if (c >= 16) return 'w16';
+  return /Track|GP|Legendary Classic/.test(cls) ? 'v12f1' : 'v12';
 }
-const SOUND_NAMES = { i3: 'Buzzy 3-Cylinder', i4: 'Inline-4', rotary: 'Rotary', i6: 'Silky Inline-6', flat6: 'Flat-6 Boxer', v8cross: 'Muscle V8 Burble', v8flat: 'Flat-Plane V8', v10: 'Shrieking V10', v12: 'Screaming V12', diesel: 'Turbo Diesel V8', diesel6: 'Diesel Inline-6', vtwin45: 'V-Twin Potato', ltwin: 'L-Twin Thump', single: 'Single Braap', bike4: 'Inline-4 Superbike', bike4sc: 'Supercharged Superbike', topfuel: 'Nitro Drag Bike', nitro8: 'Nitro Hemi V8', blown8: 'Blown Big-Block', jet: 'Jet Turbine', ev: 'Electric Whine', ev_bike: 'Electric Whine' };
+const SOUND_NAMES = { i4vtec: 'High-Rev Inline-4', i4turbo: 'Turbo Inline-4 + Pops', boxer4: 'Boxer-4 Rumble', i5: 'Inline-5 Warble', v6: 'V6', v6tt: 'Twin-Turbo V6', i6turbo: 'Turbo Straight-6', v8cam: 'Big-Cam Muscle V8', v8pipe: 'Straight-Pipe V8', v12f1: 'F1 V12 Scream', w16: 'W16 Hypercar', v8truck: 'Gas V8 Truck', dieselpipe: 'Straight-Pipe Diesel', bigrig: 'Big-Rig Diesel', cross4: 'Crossplane Inline-4', triple: 'Inline Triple', stroke2: '2-Stroke Ring-Ding', ev_scifi: 'Sci-Fi Electric', i3: 'Buzzy 3-Cylinder', i4: 'Inline-4', rotary: 'Rotary', i6: 'Silky Inline-6', flat6: 'Flat-6 Boxer', v8cross: 'Muscle V8 Burble', v8flat: 'Flat-Plane V8', v10: 'Shrieking V10', v12: 'Screaming V12', diesel: 'Turbo Diesel V8', diesel6: 'Diesel Inline-6', vtwin45: 'V-Twin Potato', ltwin: 'L-Twin Thump', single: 'Single Braap', bike4: 'Inline-4 Superbike', bike4sc: 'Supercharged Superbike', topfuel: 'Nitro Drag Bike', nitro8: 'Nitro Hemi V8', blown8: 'Blown Big-Block', jet: 'Jet Turbine', ev: 'Electric Whine', ev_bike: 'Electric Whine' };
 
 // ---- audio-thread engine core (also used by the ScriptProcessor fallback) ----
 class EngineDSP {
+  // Physically-inspired engine model:
+  //  each cylinder fires an exhaust blowdown pulse (sharp rise, slower fall, small suction lobe) whose length
+  //  follows the crank angle, so the timbre brightens naturally with rpm -> it travels down its own header
+  //  runner (short waveguide) -> all runners meet in the collector -> main exhaust pipe waveguide -> tailpipe
+  //  radiation (adds bite). Intake roar, combustion grit, diesel clatter and overrun crackle ride on top.
   constructor(p, sr) {
-    this.p = p; this.sr = sr; this.rpm = p.idle; this.tgt = p.idle; this.load = 0; this.tl = 0; this.cyc = 0;
-    this.pul = []; this.s = 12345;
-    this.d1 = Math.exp(-p.k1 / sr); this.d2 = Math.exp(-p.k2 / sr); this.dc = Math.exp(-(p.kc || 9000) / sr);
+    this.p = p; this.sr = sr; this.rpm = p.idle || 900; this.tgt = this.rpm; this.load = 0; this.tl = 0; this.cyc = 0;
+    this.s = 12345 + ((Math.random() * 99991) | 0); this.pul = []; this.cv = 1;
+    const nc = p.fires.length, base = sr * (p.runner || 0.0014), rv = p.rv == null ? 0.22 : p.rv;
+    this.run = [];
+    for (let k = 0; k < nc; k++) { const L = Math.max(2, Math.round(base * (1 + rv * Math.sin(k * 2.39 + 0.7)))); this.run.push({ b: new Float32Array(L + 1), i: 0, L, z: 0, x: 0 }); }
     this.len = Math.max(4, Math.round(sr / (p.pipe || 200))); this.dl = new Float32Array(this.len + 1); this.di = 0; this.lz = 0;
-    this.hpX = 0; this.hpY = 0; this.cv = 1; this.clk = 0; this.dX = 0; this.dY = 0;
+    this.hpX = 0; this.hpY = 0; this.dX = 0; this.dY = 0; this.yP = 0;
+    this.iL = 0; this.iB = 0; this.iF = 2 * Math.sin(Math.PI * Math.min(0.2, (p.intakeF || 1000) / sr));
   }
   n() { this.s ^= this.s << 13; this.s ^= this.s >>> 17; this.s ^= this.s << 5; return ((this.s >>> 0) / 4294967296) * 2 - 1; }
   process(o, N) {
-    const p = this.p, fires = p.fires, amps = p.amps, sr = this.sr, fb = p.fb || 0.55, damp = p.damp || 0.4;
+    const p = this.p, fires = p.fires, amps = p.amps, sr = this.sr, fb = p.fb || 0.55, damp = p.damp || 0.4, red = p.red || 7000;
+    const evo = p.evo || 0.3, rr = p.rr == null ? -0.42 : p.rr, rad = p.rad == null ? 0.55 : p.rad, grit = p.grit || 0.2;
+    const pops = p.pops || 0, intake = (p.intake || 0.25) * 0.9;
     for (let i = 0; i < N; i++) {
       this.rpm += (this.tgt - this.rpm) * 0.0009; this.load += (this.tl - this.load) * 0.002;
-      const prev = this.cyc; this.cyc += this.rpm / 120 / sr; const wrap = this.cyc >= 1;
-      if (wrap) { this.cyc -= 1; this.cv = 1 + this.n() * p.jit * 0.5; }
+      const rpm = Math.max(200, this.rpm), rf = rpm / red, ld = this.load;
+      const prev = this.cyc; this.cyc += rpm / 120 / sr; const wrap = this.cyc >= 1;
+      if (wrap) { this.cyc -= 1; this.cv = 1 + this.n() * p.jit * 0.5 * (1 + 1.5 * Math.max(0, 0.45 - rf)); }
       for (let k = 0; k < fires.length; k++) {
         const f = fires[k];
         if (wrap ? (f > prev || f <= this.cyc) : (prev < f && this.cyc >= f)) {
-          const a = amps[k % amps.length] * this.cv * (1 + this.n() * p.jit) * (0.28 + 0.72 * this.load);
-          this.pul.push([a, 1, 1, 1]);
+          const lumpy = 1 + this.n() * p.jit * (1 + 2 * Math.max(0, 0.4 - rf));
+          let a = amps[k % amps.length] * this.cv * lumpy * (0.22 + 0.78 * ld);
+          const dx = 1 / (evo * (120 / rpm) * sr);
+          if (pops && ld < 0.25 && rf > 0.3 && this.n() > 1 - pops * 0.16) this.pul.push([k, 1.5 + pops * 0.5, 0, dx * 2.5, 1]); // overrun crackle
+          else this.pul.push([k, a, 0, dx, 0]);
         }
       }
-      let v = 0, c = 0;
+      // pulses -> per-cylinder header runners
+      for (const r of this.run) r.x = 0;
+      let c = 0;
       const pu = this.pul;
       for (let j = pu.length - 1; j >= 0; j--) {
-        const q = pu[j];
-        v += q[0] * ((q[1] - q[2]) + p.grit * this.n() * q[1] * 0.6);
-        c += q[0] * q[3];
-        q[1] *= this.d1; q[2] *= this.d2; q[3] *= this.dc;
-        if (q[1] < 0.002) { pu[j] = pu[pu.length - 1]; pu.pop(); }
+        const q = pu[j], x = q[2];
+        let sh;
+        if (x < 0.12) sh = Math.sin(1.5708 * x / 0.12);
+        else if (x < 1) sh = 0.5 + 0.5 * Math.cos(3.14159 * (x - 0.12) / 0.88);
+        else sh = -0.28 * Math.sin(3.14159 * (x - 1) / 0.5);
+        const env = x < 0.4 ? 1 - x / 0.4 : 0;
+        const g = q[4] ? 2.2 : grit;
+        this.run[q[0]].x += q[1] * (sh + g * this.n() * env * 0.7);
+        c += q[1] * env;
+        q[2] += q[3];
+        if (q[2] >= 1.5) { pu[j] = pu[pu.length - 1]; pu.pop(); }
       }
-      // exhaust pipe: damped feedback delay gives the tube resonance every real exhaust has
+      let v = 0;
+      for (const r of this.run) {
+        const rd = (r.i + 1) % (r.L + 1);
+        r.z += (r.b[rd] - r.z) * 0.5;
+        const y = r.x + rr * r.z;
+        r.b[r.i] = y; r.i = rd; v += y;
+      }
+      v *= 0.55;
+      // main exhaust pipe resonance
       const rd = (this.di + 1) % (this.len + 1);
       this.lz += (this.dl[rd] - this.lz) * damp;
       let y = v + fb * this.lz;
       this.dl[this.di] = y; this.di = rd;
-      // injector / valvetrain clatter (diesels): bright clicks at each combustion
-      if (p.clat) { const cn = this.n() * c; const hp = cn - this.hpX + 0.6 * this.hpY; this.hpX = cn; this.hpY = hp; y += hp * p.clat; }
-      // DC blocker: combustion pulses are one-sided, real exhaust pressure swings both ways
-      const dc = y - this.dX + 0.996 * this.dY; this.dX = y; this.dY = dc;
-      o[i] = dc * 0.32;
+      // intake roar: noise excited by each intake stroke, through a resonant band filter
+      const ex = this.n() * c * (0.3 + ld);
+      this.iL += this.iF * this.iB; const ih = ex - this.iL - 0.5 * this.iB; this.iB += this.iF * ih;
+      // tailpipe radiation: the outlet differentiates pressure, giving the sharp edge you hear behind a car
+      let out = y + rad * (y - this.yP); this.yP = y;
+      out += this.iB * intake * (0.4 + rf);
+      if (p.clat) { const cn = this.n() * c; const hp = cn - this.hpX + 0.6 * this.hpY; this.hpX = cn; this.hpY = hp; out += hp * p.clat; }
+      const dc = out - this.dX + 0.996 * this.dY; this.dX = out; this.dY = dc;
+      o[i] = dc * 0.3;
     }
   }
 }
@@ -818,6 +878,52 @@ for (const k in _lvl) ENGINE_SOUNDS[k].vol = (ENGINE_SOUNDS[k].vol || 1) * _lvl[
 ENGINE_SOUNDS.nitro8 = Object.assign({}, ENGINE_SOUNDS.v8cross, { grit: 0.9, jit: 0.22, rasp: 5.5, res: [[160, 2, 10], [620, 2, 7], [1800, 2, 4]], lp: 900, lpRpm: 3000, lpLoad: 2600, sub: 1.5, idle: 2100, red: 8400, pops: 1.4, fb: 0.4, damp: 0.25, vol: 1.9 });
 ENGINE_SOUNDS.blown8 = Object.assign({}, ENGINE_SOUNDS.v8cross, { jit: 0.16, rasp: 3.2, idle: 1100, red: 7800, whine: 1.6, lp: 600, lpRpm: 2200, pops: 1.1, vol: 1.6 });
 ENGINE_SOUNDS.jet = { jet: true, idle: 3000, red: 10000, vol: 1.2 };
+// ---- extra selectable engine voices (built from the tuned base voices) ----
+{
+  const E = ENGINE_SOUNDS, V = (base, o) => Object.assign({}, E[base], o);
+  Object.assign(E, {
+    // cars
+    i4vtec: V('i4', { k1: 900, k2: 8000, rasp: 3.4, res: [[520, 4, 6], [1700, 3, 6]], lp: 1000, lpRpm: 3200, lpLoad: 2600, red: 9000, idle: 950, intake: 0.5, intakeF: 1700, pops: 0.4 }),
+    i4turbo: V('i4', { grit: 0.38, jit: 0.1, rasp: 2.9, res: [[360, 3, 7], [1100, 3, 5]], lp: 700, pops: 1.6, sub: 0.6 }),
+    boxer4: V('i4', { fires: [0, 0.22, 0.5, 0.78], amps: [1, 0.7, 0.95, 0.65], jit: 0.12, grit: 0.32, rasp: 2.2, res: [[240, 3, 8], [800, 3, 5]], lp: 600, lpRpm: 1600, sub: 0.75, pipe: 150, fb: 0.62, damp: 0.38, red: 7200 }),
+    i5: V('i6', { fires: [0, 0.2, 0.4, 0.6, 0.8], amps: [1, 0.8, 0.95, 0.78, 0.92], jit: 0.07, grit: 0.24, rasp: 2.6, res: [[380, 4, 7], [1250, 3, 6]], lp: 850, sub: 0.55, red: 7200, pops: 0.9 }),
+    v6: V('i6', { amps: [1, 0.85, 0.95, 0.82, 1, 0.86], grit: 0.22, jit: 0.06, rasp: 2.4, res: [[420, 3, 6], [1350, 3, 5]], lp: 800, sub: 0.55, red: 7000 }),
+    v6tt: V('i6', { amps: [1, 0.85, 0.95, 0.82, 1, 0.86], grit: 0.3, jit: 0.07, rasp: 2.8, res: [[380, 3, 6], [1200, 3, 5]], lp: 700, sub: 0.6, pops: 1.2, red: 7200 }),
+    i6turbo: V('i6', { grit: 0.24, rasp: 2.4, res: [[460, 3, 6], [1450, 3, 6]], lp: 820, sub: 0.5, pops: 1.1, red: 7200 }),
+    v8cam: V('v8cross', { jit: 0.24, grit: 0.28, sub: 1.4, lp: 360, lpRpm: 1200, res: [[120, 2, 11], [400, 3, 6]], idle: 850, pops: 1.1, red: 6800 }),
+    v8pipe: V('v8cross', { rasp: 3.6, grit: 0.34, jit: 0.14, lp: 620, lpRpm: 2000, lpLoad: 2400, res: [[170, 2, 10], [560, 3, 7], [1500, 2, 4]], fb: 0.6, pops: 1.6, vol: (E.v8cross.vol || 1) * 1.15 }),
+    v12f1: V('v12', { k1: 1300, rasp: 3.4, res: [[1100, 3, 7], [3300, 3, 8]], lp: 1700, lpRpm: 4200, lpLoad: 3000, red: 12500, idle: 1600, intake: 0.5, intakeF: 2200 }),
+    w16: V('v12', { fires: even(16), amps: [1, 0.96], rasp: 1.8, grit: 0.2, res: [[300, 3, 7], [900, 3, 6]], lp: 700, lpRpm: 2000, sub: 0.8, red: 7000, idle: 900, pops: 0.3 }),
+    // trucks
+    v8truck: V('v8cross', { sub: 1.35, lp: 340, lpRpm: 1100, rasp: 2.0, jit: 0.08, red: 5600, idle: 650, pops: 0.5 }),
+    dieselpipe: V('diesel', { rasp: 2.4, clat: 0.6, lp: 520, lpRpm: 1200, lpLoad: 1300, res: [[120, 2, 10], [400, 3, 6], [1100, 2, 4]], vol: (E.diesel.vol || 1) * 1.15 }),
+    bigrig: V('diesel6', { idle: 550, red: 2300, sub: 1.4, lp: 300, lpRpm: 600, res: [[90, 2, 10], [280, 3, 6]], clat: 0.5 }),
+    // bikes
+    cross4: V('bike4', { fires: [0, 0.375, 0.625, 0.75], amps: [1, 0.9, 0.95, 0.88], jit: 0.06, rasp: 3.4, res: [[600, 4, 7], [1900, 3, 6]], lp: 1100, sub: 0.45, red: 14000 }),
+    triple: V('bike4', { fires: even(3), amps: [1, 0.9, 0.95], rasp: 3.2, res: [[700, 4, 7], [2100, 3, 6]], lp: 1100, sub: 0.35, red: 12500 }),
+    stroke2: V('single', { fires: [0, 0.5], amps: [1, 0.95], k1: 900, k2: 9000, grit: 0.6, jit: 0.12, rasp: 4.6, res: [[600, 6, 9], [1800, 4, 7]], lp: 1500, lpRpm: 3500, lpLoad: 2500, sub: 0.2, idle: 1600, red: 12500, pops: 0.5 }),
+    // electric
+    ev_scifi: V('ev', { poles: 12 }),
+  });
+  const lv2 = {i4vtec: 0.63, i4turbo: 0.91, boxer4: 2.91, i5: 0.87, v6: 1.17, v6tt: 2.29, i6turbo: 2.74, v8cam: 0.56, v8pipe: 0.35, v12f1: 1.09, w16: 1.31, v8truck: 2.21, dieselpipe: 0.35, bigrig: 0.35, cross4: 1.36, triple: 3, stroke2: 0.76};
+  for (const k in lv2) E[k].vol = (E[k].vol || 1) * lv2[k];
+}
+// header/valve geometry per voice for the physical model: runner length (s), runner spread, valve-open fraction, reflection, tailpipe bite
+{
+  const G = (runner, rv, evo, rad, rr) => ({ runner, rv, evo, rad, rr: rr == null ? -0.42 : rr });
+  const PH = {
+    i3: G(0.0016, 0.25, 0.30, 0.55), i4: G(0.0015, 0.10, 0.30, 0.55), i4vtec: G(0.0012, 0.08, 0.26, 0.72), i4turbo: G(0.0018, 0.12, 0.32, 0.42), boxer4: G(0.0021, 0.45, 0.31, 0.5),
+    rotary: G(0.0010, 0.05, 0.38, 0.8), i5: G(0.0015, 0.2, 0.3, 0.55), v6: G(0.0016, 0.18, 0.3, 0.55), v6tt: G(0.0016, 0.18, 0.31, 0.42), i6: G(0.0016, 0.08, 0.29, 0.5), i6turbo: G(0.0017, 0.08, 0.31, 0.42),
+    flat6: G(0.0019, 0.25, 0.29, 0.7), v8cross: G(0.0021, 0.38, 0.32, 0.55), v8cam: G(0.0022, 0.4, 0.33, 0.55), v8pipe: G(0.0021, 0.38, 0.32, 0.82), v8truck: G(0.0022, 0.36, 0.33, 0.35),
+    blown8: G(0.0021, 0.38, 0.32, 0.65), nitro8: G(0.0018, 0.3, 0.36, 0.9), v8flat: G(0.0013, 0.08, 0.28, 0.7), v10: G(0.0012, 0.12, 0.27, 0.7), v12: G(0.0011, 0.1, 0.27, 0.62),
+    v12f1: G(0.0008, 0.06, 0.24, 0.85), w16: G(0.0018, 0.15, 0.3, 0.35), diesel: G(0.0025, 0.2, 0.4, 0.3), diesel6: G(0.0025, 0.15, 0.4, 0.3), dieselpipe: G(0.0024, 0.2, 0.38, 0.62), bigrig: G(0.003, 0.12, 0.42, 0.28),
+    vtwin45: G(0.0026, 0.1, 0.34, 0.5), ltwin: G(0.0018, 0.08, 0.3, 0.65), single: G(0.0016, 0, 0.3, 0.65), stroke2: G(0.0012, 0, 0.22, 0.9),
+    bike4: G(0.0010, 0.08, 0.26, 0.75), bike4sc: G(0.0010, 0.08, 0.27, 0.7), cross4: G(0.0011, 0.3, 0.27, 0.75), triple: G(0.0011, 0.12, 0.27, 0.72), topfuel: G(0.0015, 0.1, 0.36, 0.9),
+  };
+  for (const k in PH) if (ENGINE_SOUNDS[k]) Object.assign(ENGINE_SOUNDS[k], PH[k]);
+}
+// measured loudness calibration (equal RMS at 62% of redline, full throttle)
+{ const CAL = {i3: 1.71, i4: 1.87, rotary: 2.22, i6: 1.47, flat6: 1.06, v8cross: 1.3, v8flat: 0.97, v10: 1.46, v12: 2.0, diesel: 1.29, diesel6: 0.92, vtwin45: 1.76, ltwin: 1.15, single: 1.13, bike4: 2.07, bike4sc: 2.03, topfuel: 0.51, nitro8: 0.42, blown8: 0.92, i4vtec: 2.33, i4turbo: 1.6, boxer4: 0.3, i5: 1.52, v6: 1.0, v6tt: 0.45, i6turbo: 0.37, v8cam: 1.61, v8pipe: 2.01, v12f1: 0.85, w16: 2.34, v8truck: 0.76, dieselpipe: 1.89, bigrig: 2.41, cross4: 0.89, triple: 0.55, stroke2: 1.67}; for (const k in CAL) if (ENGINE_SOUNDS[k]) ENGINE_SOUNDS[k].vol = (ENGINE_SOUNDS[k].vol || 1) * CAL[k]; }
 ENGINE_SOUNDS.diesel.diesel = true; ENGINE_SOUNDS.diesel6.diesel = true;
 ENGINE_SOUNDS.diesel.res = [[95, 1.6, 8], [260, 2.5, 4], [1800, 1.5, -6]]; ENGINE_SOUNDS.diesel6.res = [[110, 1.6, 7], [300, 2.5, 4], [1800, 1.5, -6]];
 
@@ -3887,13 +3993,20 @@ function sprayGame(oldCar, newCar, title, done, pcol) {
 }
 
 // ================= CUSTOMIZATION =================
+let _optCat = null, _optPage = 0;
 const LOOK_CATS = [
   { k: 'paint', n: 'PAINT', icon: 'paint' }, { k: 'rim', n: 'RIMS', icon: 'tire' }, { k: 'rimCol', n: 'RIM COLOR', icon: 'tire' },
   { k: 'spoiler', n: 'SPOILER', icon: 'spoiler' }, { k: 'kit', n: 'BODY KIT', icon: 'kit' }, { k: 'hood', n: 'HOOD', icon: 'hood' },
   { k: 'decal', n: 'DECALS', icon: 'decal' }, { k: 'decalCol', n: 'DECAL COLOR', icon: 'decal' }, { k: 'tint', n: 'TINT', icon: 'tint' },
   { k: 'glow', n: 'UNDERGLOW', icon: 'bolt' }, { k: 'lift', n: 'LIFT KIT', icon: 'up', truck: true }, { k: 'suit', n: 'RIDER GEAR', icon: 'person', bike: true },
 ];
-function lookOptions(k) {
+const SND_SETS = {
+  car: ['i3', 'i4', 'i4vtec', 'i4turbo', 'boxer4', 'rotary', 'i5', 'v6', 'v6tt', 'i6', 'i6turbo', 'flat6', 'v8cross', 'v8cam', 'v8pipe', 'v8flat', 'blown8', 'nitro8', 'v10', 'v12', 'v12f1', 'w16', 'ev', 'ev_scifi', 'jet'],
+  truck: ['v8truck', 'v8cross', 'v8cam', 'v8pipe', 'blown8', 'diesel', 'diesel6', 'dieselpipe', 'bigrig', 'ev', 'ev_scifi'],
+  bike: ['single', 'stroke2', 'vtwin45', 'ltwin', 'triple', 'bike4', 'cross4', 'bike4sc', 'topfuel', 'ev_bike', 'ev_scifi'],
+};
+function autoSound(car) { return soundProfile(Object.assign({}, car, { look: Object.assign({}, car.look, { snd: 'auto' }) })); }
+function lookOptions(k, car) {
   const premium = S.g.booth ? PAINTS_PREMIUM : [];
   switch (k) {
     case 'paint': return PAINTS.map(p => ({ v: p[1], n: p[0], c: 400 })).concat(PAINTS_PREMIUM.map(p => ({ v: p[1], n: p[0], c: 1200, lock: !S.g.booth, lockMsg: 'NEEDS PAINT BOOTH' })));
@@ -3907,6 +4020,7 @@ function lookOptions(k) {
     case 'tint': return TINTS.map((n, i) => ({ v: i, n, c: i * 150 }));
     case 'suit': return SUITS.map(g => ({ v: g[1], n: g[0], c: 300, chip: g[1] }));
     case 'glow': return GLOWS.map(g => ({ v: g[1], n: g[0], c: g[1] ? 800 : 0, chip: g[1] }));
+    case 'snd': { const M = MODELS[car.model], set = SND_SETS[M.bike ? 'bike' : M.truck ? 'truck' : 'car']; return [{ v: 'auto', n: 'Factory Sound', c: 0, d: 'STOCK: ' + (SOUND_NAMES[autoSound(car)] || 'ENGINE').toUpperCase() }].concat(set.map(v => ({ v, n: SOUND_NAMES[v] || v, c: 0, d: 'TAP AGAIN TO REPLAY' }))); }
     case 'lift': return LIFTS.map((l, i) => ({ v: i, n: l.n, c: l.c, d: i ? '+' + (l.lift + l.tire * 2) + 'PX TALLER' : '' }));
   }
   return [];
@@ -3980,7 +4094,7 @@ function customizeScene(car) {
       text('NOS ' + p1.nos, 172, 154, p1.nos ? PAL.teal : PAL.dim);
       // category icon row
       const isBike = !!MODELS[car.model].bike;
-      const cats = tab === 'looks' ? LOOK_CATS.filter(c => (!c.truck || MODELS[car.model].truck) && (!c.bike || isBike) && (!isBike || ['paint', 'rim', 'rimCol', 'decal', 'decalCol', 'glow', 'tint', 'suit'].includes(c.k)) && (!MODELS[car.model].nitro || ['paint', 'rim', 'rimCol', 'decal', 'decalCol', 'glow', 'tint'].includes(c.k))) : PERF_KEYS.filter(k => (!isBike || (k !== 'swap' && k !== 'diff')) && (!MODELS[car.model].nitro || k !== 'swap') && (!MODELS[car.model].jet || k !== 'gears')).map(k => ({ k, n: PERF[k].n.toUpperCase(), icon: PERF[k].icon }));
+      const cats = tab === 'looks' ? LOOK_CATS.filter(c => (!c.truck || MODELS[car.model].truck) && (!c.bike || isBike) && (!isBike || ['paint', 'rim', 'rimCol', 'decal', 'decalCol', 'glow', 'tint', 'suit', 'snd'].includes(c.k)) && (!MODELS[car.model].nitro || ['paint', 'rim', 'rimCol', 'decal', 'decalCol', 'glow', 'tint', 'snd'].includes(c.k))) : PERF_KEYS.filter(k => (!isBike || (k !== 'swap' && k !== 'diff')) && (!MODELS[car.model].nitro || k !== 'swap') && (!MODELS[car.model].jet || k !== 'gears')).map(k => ({ k, n: PERF[k].n.toUpperCase(), icon: PERF[k].icon }));
       cats.forEach((c, i) => {
         const two = cats.length > 9, per = two ? 7 : 9;
         const bx = 4 + (i % per) * (two ? 29.5 : 23), by = two ? 173 + Math.floor(i / per) * 12 : 174;
@@ -3989,8 +4103,8 @@ function customizeScene(car) {
       // options panel
       const catInfo = cats.find(c => c.k === cat) || cats[0];
       panel(214, 32, 168, 164, { title: catInfo.n });
-      const opts = tab === 'looks' ? lookOptions(cat) : PERF[cat].lv.map((l, i) => ({ v: i, n: cat === 'gears' && !i ? 'Factory (' + MODELS[car.model].gears + '-Speed)' : l.n, c: upgCost(car, cat, i), d: perfDesc(cat, i) })).filter(o => cat !== 'gears' || !o.v || PERF.gears.lv[o.v].g !== MODELS[car.model].gears);
-      const cur = tab === 'looks' ? lookOf(car)[cat] : (car.up[cat] | 0);
+      const opts = tab === 'looks' ? lookOptions(cat, car) : PERF[cat].lv.map((l, i) => ({ v: i, n: cat === 'gears' && !i ? 'Factory (' + MODELS[car.model].gears + '-Speed)' : l.n, c: upgCost(car, cat, i), d: perfDesc(cat, i) })).filter(o => cat !== 'gears' || !o.v || PERF.gears.lv[o.v].g !== MODELS[car.model].gears);
+      const cur = tab === 'looks' ? (lookOf(car)[cat] ?? (cat === 'snd' ? 'auto' : undefined)) : (car.up[cat] | 0);
       if (tab === 'looks' && (cat === 'paint' || cat === 'rimCol' || cat === 'decalCol')) {
         opts.forEach((o, i) => {
           const sx = 222 + (i % 5) * 31, sy = 50 + Math.floor(i / 5) * 24;
@@ -4001,16 +4115,18 @@ function customizeScene(car) {
           if (hit(sx, sy, 26, 18)) { if (o.lock) { toast(o.lockMsg, PAL.orange); audio.sfx('error'); } else { sel = o; audio.sfx('click'); } }
         });
       } else {
-        opts.forEach((o, i) => {
-          const rh = opts.length > 8 ? 13 : 15, y = 48 + i * rh;
+        const per = 9, pgN = Math.ceil(opts.length / per); if (_optCat !== cat) { _optCat = cat; _optPage = Math.max(0, Math.floor(opts.findIndex(o => o.v === cur) / per)); } _optPage = clamp(_optPage, 0, pgN - 1);
+        if (pgN > 1) { if (button('', 340, 34, 18, 10, { icon: 'left', col: '#3a3f60' })) _optPage--; if (button('', 360, 34, 18, 10, { icon: 'right', col: '#3a3f60' })) _optPage++; text((_optPage + 1) + '/' + pgN, 336, 36, PAL.dim, { align: 'right' }); }
+        opts.slice(_optPage * per, _optPage * per + per).forEach((o, i) => {
+          const rh = 13, y = 48 + i * rh;
           const on = cur === o.v, s2 = sel && sel.v === o.v;
           rect(218, y, 160, rh - 1, s2 ? '#3a4380' : on ? '#26402e' : i % 2 ? '#20243a' : '#1a1e30');
           if (o.chip !== undefined) { rect(221, y + 2, 7, 9, PAL.ink); if (o.chip) rect(222, y + 3, 5, 7, o.chip); else icon('x', 220, y + 3, '#5a6080'); }
           text(o.n, o.chip !== undefined ? 232 : 222, y + 2, on ? PAL.green : '#e8ecff');
           const pi = prizeIdx(o);
-          const lbl = on ? 'INSTALLED' : isFree(o) ? 'OWNED' : pi >= 0 ? 'PRIZE: FREE' : fmt$(o.c);
+          const lbl = on ? 'INSTALLED' : cat === 'snd' ? 'FREE' : isFree(o) ? 'OWNED' : pi >= 0 ? 'PRIZE: FREE' : fmt$(o.c);
           text(lbl, 374, y + 2, on ? PAL.green : isFree(o) || pi >= 0 ? PAL.teal : PAL.cash, { align: 'right' });
-          if (hit(218, y, 160, rh - 1)) { sel = on ? null : o; audio.sfx('click'); }
+          if (hit(218, y, 160, rh - 1)) { if (cat === 'snd') { sel = on ? null : o; audio.unlock(); const pv = o.v === 'auto' ? autoSound(car) : o.v; audio.revDemo(pv, ENGINE_SOUNDS[pv].red || 7000); } else { sel = on ? null : o; audio.sfx('click'); } }
         });
       }
       if (sel && sel.d) text(sel.d, 298, 166, PAL.yellow, { align: 'center' });
@@ -4632,8 +4748,8 @@ function raceScene(lvIdx, lv, car, ocIn) {
       if (foul && phase === 'race' && !result && O.finished) finishRace();
       if (free && foul) foul = false;
       // audio
-      if (eng) eng.set(P.rpm, (gas ? 1 : 0.25) * (P.shiftT > 0 ? 0.3 : 1), pp.cyl, pp.turbo ? P.boost : 0, P.spin ? 1 : 0);
-      if (engO) engO.set(O.rpm, O.launched && !O.finished ? 1 : 0.3, op.cyl, op.turbo ? O.boost : 0, O.spin ? 1 : 0);
+      if (eng) eng.set(P.rpm, (gas ? 1 : 0.25) * (P.shiftT > 0 ? 0.3 : 1), pp.cyl, pp.turbo ? P.boost : 0, P.spin ? 1 : 0, P.v);
+      if (engO) { engO.set(O.rpm, O.launched && !O.finished ? 1 : 0.3, op.cyl, op.turbo ? O.boost : 0, O.spin ? 1 : 0, 0); const gap = O.x - P.x; engO.setPan(gap / 45, clamp(1.15 - Math.abs(gap) / 160, 0.25, 1.15)); }
       if (result) {
         if (eng) { eng.set(900, 0.1, pp.cyl, 0, 0); }
       }
