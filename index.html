@@ -5204,7 +5204,7 @@ function domBox(o) {
     (o.note ? '<div style="color:#9aa3cc;font:13px monospace;line-height:1.4">' + o.note + '</div>' : '') +
     '<textarea id="pmta" spellcheck="false" ' + (o.readonly ? 'readonly' : '') + ' placeholder="' + (o.placeholder || '') + '" style="height:' + (o.short ? 44 : 150) + 'px;font:12px monospace;background:#0b0c14;color:#e8ecff;border:2px solid #3b4268;padding:8px;resize:none;word-break:break-all"></textarea>' +
     '<div id="pmmsg" style="color:#e8434b;font:13px monospace;min-height:16px"></div>' +
-    '<div style="display:flex;gap:10px;flex-wrap:wrap">' + btn('pmclose', 'CLOSE', '#3a3f60') + (o.readonly ? btn('pmcopy', 'COPY', '#4a5bd0') : '') + (o.file ? btn('pmfile', 'DOWNLOAD', '#2a8a9a') : '') + (o.onOk ? btn('pmok', o.okLabel || 'OK', '#5fd35a', '#0b0c14') : '') + '</div></div>';
+    '<div style="display:flex;gap:10px;flex-wrap:wrap">' + btn('pmclose', 'CLOSE', '#3a3f60') + (o.readonly ? btn('pmcopy', 'COPY', '#4a5bd0') : '') + (o.file && window.top === window ? btn('pmfile', 'DOWNLOAD', '#2a8a9a') : '') + (o.onOk ? btn('pmok', o.okLabel || 'OK', '#5fd35a', '#0b0c14') : '') + '</div></div>';
   document.body.appendChild(wrap); _codeBox = wrap;
   const ta = wrap.querySelector('#pmta'), msg = wrap.querySelector('#pmmsg');
   ta.value = o.value || '';
