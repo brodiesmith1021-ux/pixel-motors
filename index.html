@@ -1779,6 +1779,7 @@ function ringPx(cx, cy, r, col) {
 }
 // draw a car with ground at y; x = sprite left edge
 function drawCar(car, x, y, o = {}) {
+  const GA = o.alpha || 1; T.globalAlpha = GA;
   const sp = o.sp || buildCar(car, o);
   const s = o.s || 1;
   const big = s >= 2;
@@ -1788,10 +1789,10 @@ function drawCar(car, x, y, o = {}) {
   const M = sp.M;
   // shadow
   if (!o.noShadow) {
-    T.globalAlpha = o.shadowA || 0.35;
+    T.globalAlpha = (o.shadowA || 0.35) * GA;
     rect(X + (M.rear + 2) * s, Y + 36 * s, (M.front - M.rear - 4) * s, 2 * s, '#000');
     rect(X + (M.rear + 5) * s, Y + 38 * s, (M.front - M.rear - 10) * s, 1 * s, '#000');
-    T.globalAlpha = 1;
+    T.globalAlpha = GA;
   }
   const rot = (o.rot || 0) | 0;
   const by = (o.bounce || 0) - sp.raise;
@@ -1799,10 +1800,10 @@ function drawCar(car, x, y, o = {}) {
   const L = lookOf(car);
   if (L.glow) { // underglow
     const a = 0.45 + Math.sin(NOW * 4) * 0.12;
-    T.globalAlpha = a * 0.55; rect(X + (M.rear + 3) * s, Y + 35 * s, (M.front - M.rear - 6) * s, 3 * s, L.glow);
-    T.globalAlpha = a * 0.3; rect(X + (M.rear - 1) * s, Y + 37 * s, (M.front - M.rear + 2) * s, 2 * s, L.glow);
-    T.globalAlpha = a * 0.5; rect(X + (M.rear + 4) * s, Y + (32 + sp.bodyDy + by) * s, (M.front - M.rear - 8) * s, Math.min(3, Math.max(1, 36 - 32 - by)) * s, L.glow);
-    T.globalAlpha = 1;
+    T.globalAlpha = GA * a * 0.55; rect(X + (M.rear + 3) * s, Y + 35 * s, (M.front - M.rear - 6) * s, 3 * s, L.glow);
+    T.globalAlpha = GA * a * 0.3; rect(X + (M.rear - 1) * s, Y + 37 * s, (M.front - M.rear + 2) * s, 2 * s, L.glow);
+    T.globalAlpha = GA * a * 0.5; rect(X + (M.rear + 4) * s, Y + (32 + sp.bodyDy + by) * s, (M.front - M.rear - 8) * s, Math.min(3, Math.max(1, 36 - 32 - by)) * s, L.glow);
+    T.globalAlpha = GA;
   }
   if (sp.raise > 0) { // lift kit: frame rail + coilovers visible in the gap
     const bb = 31 + sp.bodyDy + by;
@@ -1822,10 +1823,11 @@ function drawCar(car, x, y, o = {}) {
     }
   } else T.drawImage(BCV, X, Y + (sp.bodyDy + by) * s, CW * s, CH * s);
   const fr = o.blur ? WR.blur : WR[((rot % 8) + 8) % 8], ff = o.blur ? WF.blur : WF[((rot % 8) + 8) % 8];
-  if (o.lights && M.head[0] >= 0) { const [hx, hy] = M.head, by2 = Y + (hy + sp.bodyDy + by) * s; T.globalAlpha = 0.13; poly([[X + hx * s, by2 - 1], [X + (hx + 70) * s, by2 - 14 * s], [X + (hx + 70) * s, by2 + 12 * s]], '#fff6c8'); T.globalAlpha = 0.5; disc(X + hx * s, by2, 2 * s, '#fffbe0'); T.globalAlpha = 0.35; disc(X + M.tail[0] * s, Y + (M.tail[1] + 1 + sp.bodyDy + by) * s, 3 * s, '#ff3040'); T.globalAlpha = 1; }
+  if (o.lights && M.head[0] >= 0) { const [hx, hy] = M.head, by2 = Y + (hy + sp.bodyDy + by) * s; T.globalAlpha = 0.13 * GA; poly([[X + hx * s, by2 - 1], [X + (hx + 70) * s, by2 - 14 * s], [X + (hx + 70) * s, by2 + 12 * s]], '#fff6c8'); T.globalAlpha = 0.5; disc(X + hx * s, by2, 2 * s, '#fffbe0'); T.globalAlpha = 0.35; disc(X + M.tail[0] * s, Y + (M.tail[1] + 1 + sp.bodyDy + by) * s, 3 * s, '#ff3040'); T.globalAlpha = GA; }
   T.drawImage(fr, X + (M.xr - WR.c / KK) * s, Y + (sp.yr - WR.c / KK) * s, fr.width / KK * s, fr.height / KK * s);
   T.drawImage(ff, X + (M.xf - WF.c / KK) * s, Y + (sp.yf - WF.c / KK - Math.round(wheelie)) * s, ff.width / KK * s, ff.height / KK * s);
   if (M.skirts && sp.skin && !o.tarp) for (const [xc, yc, r] of [[M.xr, sp.yr, M.rr], [M.xf, sp.yf, M.rf]]) { const x0 = X + (xc - r - 1) * s, y0 = Y + (yc - r - 1) * s, w = (2 * r + 2) * s, h = (r * 1.55 + 1) * s; rect(x0, y0, w, h, sp.skin[2]); rect(x0 + s, y0, w - 2 * s, h - s, sp.skin[0]); rect(x0 + s, y0 + h - 3 * s, w - 2 * s, s, sp.skin[1]); disc(X + xc * s, Y + yc * s, Math.max(1, Math.round(r * 0.35 * s)), sp.skin[1]); }
+  T.globalAlpha = 1;
   return sp;
 }
 // floor reflection
@@ -2602,7 +2604,7 @@ function loadSettings() { try { const s = JSON.parse(localStorage.getItem(SET_KE
 function saveSettings() { try { localStorage.setItem(SET_KEY, JSON.stringify(settings)); } catch (e) { } applySettings(); }
 function applySettings() { audio.vol.master = settings.master; audio.vol.music = settings.music; audio.vol.sfx = settings.sfx; audio.vol.mute = settings.mute; audio.applyVol(); }
 function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
-function saveGame() { if (!S) return; try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { } }
+function saveGame() { if (!S) return; try { trackOwned(); localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { } }
 function loadGame() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (s && s.v === 1) { S = s; migrate(); return true; } } catch (e) { } return false; }
 function migrate() {
   S.kits = S.kits || {}; S.parts = S.parts || []; S.offers = S.offers || []; S.stats = S.stats || { won: 0, lost: 0, sold: 0, earned: 0, restored: 0 };
@@ -2637,6 +2639,7 @@ function newGame(starterIdx = 0) {
   const starter = starterCar(starterIdx);
   S.cars.push(starter);
   migrateBiz();
+  applyPrestigeCarry();
   refreshMarket();
   saveGame();
 }
@@ -2667,6 +2670,7 @@ function makeCar(model, src, rng) {
   if (src === 'dealer' && R() < 0.35) car.look.rim = pick(['five', 'mesh', 'turbine']);
   if (M.stock) Object.assign(car.look, M.stock);
   car.dirt = src === 'junk' ? 0.9 : src === 'auction' ? 0.4 : 0.05;
+  if (src === 'junk' || src === 'auction') { const sc = rollSecret(src); if (sc) car.secret = sc; }
   return car;
 }
 // ---- value ----
@@ -2683,14 +2687,14 @@ function upgValue(car) {
 function carValue(car) {
   const M = MODELS[car.model];
   const mf = clamp(1 - car.mileage / 600000, 0.7, 1);
-  return Math.round(M.price * mf * (0.15 + 0.85 * condScore(car)) + upgValue(car) * 0.5);
+  return Math.round((M.price * mf * (0.15 + 0.85 * condScore(car)) + upgValue(car) * 0.5) * (car.gem || 1));
 }
 function upgCost(car, k, lv) { const M = MODELS[car.model]; if (PERF[k].lv[lv].fixed) return PERF[k].lv[lv].c; const f = Math.sqrt(clamp(M.price / 30000, 0.4, 6)); return Math.round((PERF[k].lv[lv].c || 0) * f / 50) * 50; }
 function repairCap() { return TOOL_CAP[S.g.tools]; }
 function repairCost(car, cid) {
   const M = MODELS[car.model]; const cur = car.comp[cid];
   const need = Math.max(0, repairCap() - cur);
-  return Math.round((need * M.price * COMP[cid].w * 0.3 + 40 + (cur === 0 ? M.price * COMP[cid].w * 0.06 : 0)) / 10) * 10;
+  return Math.round((need * M.price * COMP[cid].w * 0.3 + 40 + (cur === 0 ? M.price * COMP[cid].w * 0.06 : 0)) * (1 - setBonus('repair')) / 10) * 10;
 }
 function avgCond(car) { const v = Object.values(car.comp); return v.reduce((a, b) => a + b, 0) / v.length; }
 function carName(car) { const M = MODELS[car.model]; return M.make + ' ' + M.name; }
@@ -2734,9 +2738,10 @@ function perf(car, override) {
   const k = 0.5 * 1.2 * cdaE + 0.02;
   const vTop = Math.cbrt(P / k);
   const gN = !M.jet && up.gears ? PERF.gears.lv[up.gears].g : M.gears;
-  const ratios = GEARSETS[gN] || GEARSETS[6];
+  const baseR = GEARSETS[gN] || GEARSETS[6], tgr = tune.g || [];
+  const ratios = baseR.map((q, i) => q * (tgr[i] || 1));
   const r = 0.32, wRed = RL * TAU / 60;
-  const final = clamp(wRed * r / (vTop * 1.04 * ratios[ratios.length - 1]), 2.2, 9) * (tune.fd || 1);
+  const final = clamp(wRed * r / (vTop * 1.04 * baseR[baseR.length - 1]), 2.2, 9) * (tune.fd || 1);
   let traction = grip * 9.81 * wt * split * 1.3; // prepped drag strip surface
   if (M.bike) traction = Math.min(traction * 1.35, wt * 9.81 * (M.wheelieBar ? 2.6 : 1.8) * PERF.susp.lv[up.susp | 0].v); // wheelie limit
   let issue = null;
@@ -2817,7 +2822,7 @@ function nextDay(silent) {
 function makeOffer(car, decorB) {
   const v = carValue(car);
   const ask = car.ask || v;
-  const max = v * rnd(0.88, 1.22) * decorB * (1 + Math.min(0.1, S.rep / 2500)) * trendMul(car) * (S.staff.sales ? 1.05 : 1) * ((car.dirt || 0) < 0.15 ? 1.04 : 1);
+  const max = v * (1 + setBonus('sale')) * rnd(0.88, 1.22) * decorB * (1 + Math.min(0.1, S.rep / 2500)) * trendMul(car) * (S.staff.sales ? 1.05 : 1) * ((car.dirt || 0) < 0.15 ? 1.04 : 1);
   let first = Math.min(ask, max * rnd(0.78, 0.95));
   return { id: uid(), carId: car.id, max: Math.round(max), amount: Math.round(first / 50) * 50, patience: 2 + Math.floor(Math.random() * 2),
     face: { skin: pick(['#e0ac7e', '#c68a5e', '#8a5a3a', '#f0c8a0', '#f3d2b8']), hair: pick(['#3a2518', '#14141a', '#c07030', '#e8e8f0', '#f0e070', '#6a2a1a']), style: pick(['short', 'long', 'bun', 'cap', 'slick', 'spiky']), cap: pick(['#2f6ae0', '#c03030', '#3fa34d']), shirt: pick(['#2f6ae0', '#d23a3a', '#3fa34d', '#a36bff', '#e5d8ac', '#f07a22']), glasses: Math.random() < 0.2, beard: Math.random() < 0.2 },
@@ -2899,6 +2904,7 @@ function ev(k, n = 1) {
     d.p = Math.min(d.n, d.p + n);
     if (d.p >= d.n) { d.done = true; S.cash += d.r; toast('DAILY DONE: ' + d.t.toUpperCase() + ' +' + fmt$(d.r), PAL.green); audio.sfx('cash'); }
   }
+  weeklyEv(k, n);
   checkAch();
 }
 function checkAch() {
@@ -2944,6 +2950,7 @@ function businessDay() {
   // dust settles on parked cars
   for (const c of S.cars) c.dirt = Math.min(1, (c.dirt || 0) + 0.06);
   newDailies();
+  bankDay(rep);
   S.report = rep;
 }
 function makeOrder() {
@@ -3051,6 +3058,7 @@ function drawHUD() {
   icon('coin', 4, 3, PAL.cash); text(fmt$(S.cash), 14, 4, PAL.cash);
   let x = 22 + measure(fmt$(S.cash));
   icon('star', x, 3, PAL.rep); text(fmtN(S.rep), x + 10, 4, PAL.rep); x += 18 + measure(fmtN(S.rep));
+  if (S.prestige) { icon('crown', x - 2, 3, PAL.yellow); text(String(S.prestige), x + 8, 4, PAL.yellow); x += 14 + measure(String(S.prestige)); }
   const lv = playerLevel(); text('LV' + lv, x, 4, '#9ad0ff'); x += measure('LV' + lv) + 3;
   bar(x, 4, 30, 6, (S.xp - xpForLevel(lv)) / (xpForLevel(lv + 1) - xpForLevel(lv)), '#4a8cff'); x += 36;
   icon('cal', x, 3, '#c9ced8'); text('DAY ' + S.day, x + 10, 4, '#c9ced8'); x += 16 + measure('DAY ' + S.day);
@@ -3214,7 +3222,7 @@ function garageScene() {
   let t = 0, lastX = 0, hint = 0;
   const mech = { x: 60, dir: 1, wait: 0 };
   return {
-    enter() { audio.playMusic('garage'); saveGame(); },
+    enter() { audio.playMusic('garage'); saveGame(); checkWeekly(); setTimeout(checkStreak, 500); },
     update(dt) {
       t += dt; hint += dt;
       const Wg = garageWidth(S.g);
@@ -3284,7 +3292,7 @@ function statRow(label, val, x, y, col = '#e8ecff') { text(label, x, y, PAL.dim)
 function carScene(car) {
   let t = 0, et = null;
   return {
-    enter() { const p = perf(car); et = p.issue ? null : estimateET(car, 402); },
+    enter() { const p = perf(car); et = p.issue ? null : estimateET(car, 402); setTimeout(() => revealSecret(car), 350); },
     update(dt) { t += dt; },
     draw() {
       const bg = getGarageBG(S.g);
@@ -3411,8 +3419,8 @@ function settingsScene(back) {
     draw() {
       rect(0, 0, W, H, '#0e1020');
       for (let y = 0; y < H; y += 8) hline(0, y, W, '#121528');
-      panel(62, 16, 260, 186, { title: 'SETTINGS' });
-      let y = 36;
+      panel(62, 2, 260, 204, { title: 'SETTINGS' });
+      let y = 20;
       const m = slider('MASTER', 74, y, 236, settings.master); if (m !== settings.master) { settings.master = m; applySettings(); } y += 18;
       const mu = slider('MUSIC', 74, y, 236, settings.music); if (mu !== settings.music) { settings.music = mu; applySettings(); } y += 18;
       const sf = slider('EFFECTS', 74, y, 236, settings.sfx); if (sf !== settings.sfx) { settings.sfx = sf; applySettings(); } y += 22;
@@ -3424,7 +3432,10 @@ function settingsScene(back) {
       if (button('DELETE SAVE', 74, y, 112, 15, { col: '#8a2a2a' })) dialog({ title: 'DELETE SAVE?', lines: ['All progress will be lost permanently.'], buttons: [{ label: 'CANCEL', col: '#3a3f60' }, { label: 'DELETE', col: PAL.red, cb: () => { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } S = null; go(menuScene()); } }] });
       if (button('DONE', 196, y, 114, 15, { col: PAL.green }) || keyP('Escape')) { saveSettings(); go(back && back.draw ? back : menuScene()); }
       if (button('REDEEM CODE', 74, y + 19, 236, 14, { col: '#7a4bd1', icon: 'star' })) openCodeEntry();
-      text('KEYS: W/UP = GAS, SPACE/SHIFT = LAUNCH & SHIFT, N = NITROUS', W / 2, 206, '#5a6080', { align: 'center' });
+      if (S && button('BACKUP SAVE', 74, y + 36, 76, 14, { col: '#2a6a8a', icon: 'box' })) exportSave();
+      if (S && button('RESTORE', 154, y + 36, 76, 14, { col: '#2a6a8a', icon: 'box' })) importSave();
+      if (button('INSTALL APP', 234, y + 36, 76, 14, { col: '#3a6a3a', icon: 'house' })) installApp();
+      text('KEYS: W/UP = GAS, SPACE/SHIFT = LAUNCH & SHIFT, N = NITROUS', W / 2, 208, '#5a6080', { align: 'center' });
     },
   };
 }
@@ -4155,19 +4166,22 @@ function levelsScene(preferCarId, mode = 'career') {
       const L = getTrackLayers('mountain');
       blit(L.sky, 0, 0); tileX(L.far, t * 4, 0); tileX(L.mid, t * 10, 0); tileX(L.near, t * 30, 82); tileX(L.fence, t * 30, 52); tileX(L.road, t * 30, 118);
       T.globalAlpha = 0.55; rect(0, 0, W, H, '#05060c'); T.globalAlpha = 1;
-      if (button('CAREER', 4, 17, 56, 14, { icon: 'flag', col: mode === 'career' ? '#4a5bd0' : '#262b44', selected: mode === 'career' })) { mode = 'career'; page = Math.floor(firstOpen() / 4); audio.sfx('tab'); }
+      if (button('CAREER', 4, 17, 48, 14, { icon: 'flag', col: mode === 'career' ? '#4a5bd0' : '#262b44', selected: mode === 'career' })) { mode = 'career'; page = Math.floor(firstOpen() / 4); audio.sfx('tab'); }
       const evLeft = EVENTS.filter(e => !S.evDone[e.id]).length;
-      if (button('EVENTS', 63, 17, 56, 14, { icon: 'star', col: mode === 'events' ? '#4a5bd0' : '#262b44', selected: mode === 'events', badge: evLeft })) { mode = 'events'; page = 0; audio.sfx('tab'); }
-      if (button('QUICK RACE', 226, 17, 74, 14, { icon: 'flag', col: PAL.orange })) go(preRaceScene(-1, preferCarId));
-      if (button('FREE RUN', 303, 17, 77, 14, { icon: 'bolt', col: '#2a8a9a' })) go(freeRunScene(preferCarId));
+      if (button('STREET', 104, 17, 48, 14, { icon: 'bolt', col: mode === 'street' ? '#c8326a' : '#262b44', selected: mode === 'street' })) { mode = 'street'; page = 0; audio.sfx('tab'); }
+      if (button('EVENTS', 54, 17, 48, 14, { icon: 'star', col: mode === 'events' ? '#4a5bd0' : '#262b44', selected: mode === 'events', badge: evLeft })) { mode = 'events'; page = 0; audio.sfx('tab'); }
+      if (button('QUICK', 208, 17, 52, 14, { icon: 'flag', col: PAL.orange })) go(preRaceScene(-1, preferCarId));
+      if (button('FREE RUN', 262, 17, 60, 14, { icon: 'bolt', col: '#2a8a9a' })) go(freeRunScene(preferCarId));
+      if (button('GHOSTS', 324, 17, 56, 14, { icon: 'person', col: '#5a4ab0' })) go(ghostScene(preferCarId));
       const cupOk = cupAvailable();
-      if (button(cupOk ? 'WEEKEND CUP' : S.lvlDone < 2 ? 'CUP: BEAT LV2' : 'CUP IN ' + (7 - (S.day - S.cupDay)) + ' DAYS', 122, 17, 101, 14, { icon: 'trophy', col: cupOk ? '#c8323a' : '#4a4f6a' })) { if (cupOk) go(preRaceScene(-2, preferCarId, { cupRound: 1 })); else audio.sfx('error'); }
+      if (button(cupOk ? 'CUP!' : S.lvlDone < 2 ? 'CUP LV2' : 'CUP ' + (7 - (S.day - S.cupDay)) + 'D', 154, 17, 52, 14, { icon: 'trophy', col: cupOk ? '#c8323a' : '#4a4f6a' })) { if (cupOk) go(preRaceScene(-2, preferCarId, { cupRound: 1 })); else audio.sfx('error'); }
       const dcol = { Easy: PAL.green, Medium: PAL.yellow, Hard: PAL.orange, 'Very Hard': PAL.red, Extreme: '#ff4fa3', Insane: PAL.purple, Legendary: '#ffb02e' };
-      const total = mode === 'career' ? LEVELS.length : EVENTS.length, pages = Math.ceil(total / 4);
+      const total = mode === 'career' ? LEVELS.length : mode === 'street' ? 4 : EVENTS.length, pages = Math.ceil(total / 4);
       page = clamp(page, 0, pages - 1);
       for (let r = 0; r < 4; r++) {
         const i = page * 4 + r; if (i >= total) break;
         const y = 34 + r * 39;
+        if (mode === 'street') { drawStreetRow(i, y, preferCarId); continue; }
         if (mode === 'career') {
           const lv = LEVELS[i], locked = !lvOpen(i), doneL = !!(S.lvBeat && S.lvBeat[i]);
           panel(4, y, 352, 37, { fill: locked ? '#15172a' : doneL ? '#1a2a24' : lv.season ? '#2a2040' : '#202544', edge: !locked && !doneL ? PAL.yellow : PAL.edge });
@@ -4175,6 +4189,7 @@ function levelsScene(preferCarId, mode = 'career') {
           if (!locked) portrait(28, y + 6, lv.opp.face, 1); else { rect(28, y + 6, 24, 24, '#0e1020'); icon('lock', 36, y + 14, '#4a4f6a'); }
           text((lv.season ? 'S2: ' : '') + lv.n, 58, y + 6, locked ? '#5a6080' : lv.season ? '#d8b0ff' : '#ffffff');
           text(lv.diff.toUpperCase(), 350, y + 6, dcol[lv.diff] || PAL.red, { align: 'right' });
+          { const cr = crewOf(i); const bx = 340 - measure(lv.diff.toUpperCase()) - (doneL ? 12 : 0); const tag = isBoss(i) ? cr.n.toUpperCase() + ' BOSS' : cr.n.toUpperCase(); text(tag, bx - measure(tag), y + 6, isBoss(i) ? '#ff5a6a' : cr.col); }
           if (!locked) text('VS ' + lv.opp.name + ' - ' + MODELS[lv.opp.model].make + ' ' + MODELS[lv.opp.model].name + ' ' + lv.opp.hp + 'HP', 58, y + 15, '#c9ced8');
           text('REC: ' + lv.rec.toUpperCase() + ' ~' + Math.round(lv.opp.hp * 0.95 / 10) * 10 + 'HP', 58, y + 24, locked ? '#4a4f6a' : '#9ad0ff');
           text(fmt$(lv.reward), 350, y + 15, PAL.cash, { align: 'right' });
@@ -4232,8 +4247,10 @@ function preRaceScene(lvIdx, preferCarId, opts = {}) {
       opp: Object.assign({ face: { skin: pick(['#e0ac7e', '#c68a5e', '#8a5a3a', '#f0c8a0']), hair: pick(['#3a2518', '#14141a', '#c07030', '#e8e8f0']), style: pick(['short', 'spiky', 'cap', 'long', 'slick']), cap: '#c03030', shirt: pick(['#2f6ae0', '#d23a3a', '#3fa34d', '#a36bff']) }, tag: 'Event Boss' }, e.opp) };
     const el = cars().findIndex(e.ok); if (el >= 0 && !(cars()[ci] && e.ok(cars()[ci]))) ci = el;
   }
+  if (lvIdx === -5) { lv = streetLv(streetList()[opts.street]); bet = 'cash'; }
+  if (isBoss(lvIdx) && !(S.lvBeat && S.lvBeat[lvIdx])) setTimeout(() => bossIntro(lvIdx, lv), 250);
   function setupOpp() {
-    if (lvIdx < 0 && lvIdx !== -3) {
+    if (lvIdx < 0 && lvIdx !== -3 && lvIdx !== -5) {
       const c = cars()[ci]; if (!c) return; lv = quickOpp(c);
       if (lvIdx === -1 && S.qDist) { lv.reward = Math.round(lv.reward * distMul(S.qDist) / 50) * 50; lv.dist = S.qDist; }
       if (lvIdx === -2) {
@@ -4281,7 +4298,7 @@ function preRaceScene(lvIdx, preferCarId, opts = {}) {
       // right panel: opponent
       panel(230, 32, 150, 96, { title: lv.opp.name.toUpperCase() });
       portrait(236, 48, lv.opp.face, 1);
-      text(lv.opp.tag ? lv.opp.tag.toUpperCase() : 'RACER', 264, 48, PAL.dim);
+      text(lvIdx >= 0 ? crewOf(lvIdx).n.toUpperCase() + (isBoss(lvIdx) ? ' BOSS' : '') : lv.opp.tag ? lv.opp.tag.toUpperCase() : 'RACER', 264, 48, lvIdx >= 0 ? (isBoss(lvIdx) ? '#ff5a6a' : crewOf(lvIdx).col) : PAL.dim);
       text(MODELS[lv.opp.model].make + ' ' + MODELS[lv.opp.model].name, 264, 57, '#e8ecff');
       text(op.hp + ' HP  ' + fmtN(op.wt) + ' KG', 264, 66, PAL.orange);
       text('EST ' + ets.opp.toFixed(2) + 'S', 236, 80, PAL.yellow);
@@ -4293,7 +4310,7 @@ function preRaceScene(lvIdx, preferCarId, opts = {}) {
         }
         text((TRACKS[lv.track] ? TRACKS[lv.track].n.toUpperCase().split(' ')[0] : ''), 298, 101, PAL.dim);
       } else text(distName(lv.dist) + '  ' + (TRACKS[lv.track] ? TRACKS[lv.track].n.toUpperCase().split(' ').slice(0, -1).join(' ') : ''), 236, 101, PAL.dim);
-      text('REWARD ' + fmt$(lv.reward), 236, 112, PAL.cash);
+      if (lv.street) text('STAKES ' + fmt$(lv.street.bet) + ' (WIN ' + fmt$(lv.street.bet * 2) + ')', 236, 112, PAL.cash); else text('REWARD ' + fmt$(Math.round(lv.reward * prizeMul() / 10) * 10), 236, 112, PAL.cash);
       // recommendation
       panel(158, 32, 68, 50, { fill: '#1a1e30' });
       text('REC CAR', 192, 37, PAL.dim, { align: 'center' });
@@ -4308,8 +4325,8 @@ function preRaceScene(lvIdx, preferCarId, opts = {}) {
         else if (p.issue) { toast('CAR CANNOT RACE: ' + p.issue, PAL.red); audio.sfx('error'); }
         else if (S.cash < fee) { toast('NOT ENOUGH CASH FOR ENTRY', PAL.red); audio.sfx('error'); }
         else {
-          const amt = Math.min(S.cash - fee, Math.round(lv.reward * 2 / 50) * 50);
-          if (bet === 'cash' && amt < 100) { toast('NOT ENOUGH CASH TO BET', PAL.red); audio.sfx('error'); }
+          const amt = lv.street ? lv.street.bet : Math.min(S.cash - fee, Math.round(lv.reward * 2 / 50) * 50);
+          if (bet === 'cash' && (amt < 100 || S.cash - fee < amt)) { toast(lv.street ? 'YOU NEED ' + fmt$(amt) + ' TO MATCH THE STAKES' : 'NOT ENOUGH CASH TO BET', PAL.red); audio.sfx('error'); }
           else {
             const startIt = () => { S.cash -= fee; if (bet === 'cash') { S.cash -= amt; lv.bet = { type: 'cash', amount: amt }; } else if (bet === 'pink') lv.bet = { type: 'pink' }; else lv.bet = null; if (lv.cup && lv.cup.round === 1) S.cupDay = S.day; saveGame(); go(raceScene(lvIdx, lv, car, oc)); };
             if (bet === 'pink') dialog({ title: 'PINK SLIPS?', lines: ['Winner takes the loser\'s car. Lose and your ' + carName(car) + ' is gone for good. Win and you drive home in their ' + MODELS[oc.model].make + ' ' + MODELS[oc.model].name + '.'], buttons: [{ label: 'BACK OUT', col: '#3a3f60' }, { label: 'RACE FOR SLIPS', col: PAL.red, cb: startIt }] });
@@ -4328,7 +4345,8 @@ function preRaceScene(lvIdx, preferCarId, opts = {}) {
       if (!elig) text('NOT ELIGIBLE - NEEDS: ' + lv.rec.toUpperCase(), 192, 176, PAL.red, { align: 'center' });
       else if (p.issue) text('REPAIR NEEDED: ' + p.issue, 192, 176, PAL.red, { align: 'center' });
       else if (!recOk) text('UNDERPOWERED? UPGRADES CAN CLOSE THE GAP', 192, 176, PAL.orange, { align: 'center' });
-      drawHUD(); backBtn(() => levelsScene(car.id, lv.event ? 'events' : 'career'));
+      if (lv.street) text('STREET RACE AT NIGHT - ' + Math.round(lv.street.cop * 100) + '% CHANCE THE COPS SHOW UP', 192, 150, '#ff8ac0', { align: 'center', shadow: true });
+      drawHUD(); backBtn(() => levelsScene(car.id, lv.event ? 'events' : lv.street ? 'street' : 'career'));
     },
   };
 }
@@ -4437,11 +4455,12 @@ function raceScene(lvIdx, lv, car, ocIn) {
     if (foul) st.red[1] = true; if (oFoul) st.red[0] = true;
     return st;
   }
-  const free = !!lv.free;
+  const free = !!lv.free, ghost = lv.ghost || null, rec = [];
   function finishFree() {
     phase = 'done';
     const kmh = Math.round(P.top * 3.6), prev = S.topSpd[car.id] || 0, rec = S.topSpd.best || 0;
     const pb = kmh > prev, wr = kmh > rec;
+    if (kmh >= 300) ev('top300');
     if (pb) S.topSpd[car.id] = kmh; if (wr) { S.topSpd.best = kmh; S.topSpd.bestCar = carName(car); }
     car.mileage += Math.ceil(dist / 1609); car.dirt = Math.min(1, (car.dirt || 0) + 0.1);
     ev('race'); saveGame();
@@ -4471,9 +4490,14 @@ function raceScene(lvIdx, lv, car, ocIn) {
       if (lv.event) { S.evDone = S.evDone || {}; const fe = !S.evDone[lv.event]; rw.cash = lv.reward; rw.rep = fe ? 6 : 2; rw.xp = fe ? 50 : 20; if (fe) { S.evDone[lv.event] = 1; rw.items.push('EVENT CLEARED: ' + lv.n.toUpperCase()); } }
       S.stats.won++;
       if (lvIdx >= 0 && (!S.best[lvIdx] || P.et < S.best[lvIdx])) S.best[lvIdx] = P.et;
+      if (first && isBoss(lvIdx)) bossReward(lvIdx, oc, rw);
+      if (dist >= 1609) ev('mileWin'); if (MODELS[car.model].bike) ev('bikeWin'); if (MODELS[car.model].truck) ev('truckWin');
+      if (lv.street) { ev('streetWin'); lv.street.done = true; }
+      if (ghost) { ev('ghostWin'); rw.cash = 250; rw.items.push('GHOST BEATEN BY ' + (O.finished ? (O.finishT - P.finishT).toFixed(2) + 'S' : 'A MILE')); }
+      rw.cash = Math.round(rw.cash * prizeMul() / 10) * 10; rw.rep = Math.round(rw.rep * (1 + setBonus('rep')));
     } else {
       S.stats.lost++;
-      rw.cash = foul || lv.cup ? 0 : Math.max(50, Math.round((lv.reward || 500) * 0.06 / 10) * 10); rw.xp = 5;
+      rw.cash = foul || lv.cup || lv.street || ghost ? 0 : Math.max(50, Math.round((lv.reward || 500) * 0.06 / 10) * 10); rw.xp = 5;
     }
     // bets & pink slips
     rw.lines = [];
@@ -4510,7 +4534,9 @@ function raceScene(lvIdx, lv, car, ocIn) {
     car.mileage += Math.ceil(dist / 1609);
     car.wins = (car.wins || 0) + (win ? 1 : 0);
     saveGame();
+    if (P.finished && !foul && greenT >= 0 && !ghost) { rec.push(dist); if (saveGhost(car, dist, lv.track, P.finishT - greenT, P.et, rec)) rw.items.push('NEW ' + distName(dist) + ' GHOST SAVED (RACE > GHOSTS)'); }
     result = { win, rw, first };
+    if (lv.street && Math.random() < lv.street.cop) result.cops = { stage: 'ask', fine: Math.round(lv.street.bet * 1.5 / 50) * 50, chance: clamp(0.3 + (pp.vTop * 3.6 - 200) / 700 + (win ? 0.05 : 0), 0.2, 0.85) };
     audio.sfx(win ? 'win' : 'lose');
     if (win && rw.cash) setTimeout(() => audio.sfx('cash'), 700);
   }
@@ -4522,7 +4548,7 @@ function raceScene(lvIdx, lv, car, ocIn) {
     P, O, get phase() { return phase; }, get result() { return result; }, get parts() { return parts; },
     enter() {
       audio.stopMusic(); startSfx(car);
-      eng = audio.engine(1, soundProfile(car)); engO = free ? null : audio.engine(0.4, soundProfile(oc));
+      eng = audio.engine(1, soundProfile(car)); engO = free || ghost ? null : audio.engine(0.4, soundProfile(oc));
     },
     leave() { if (eng) eng.stop(); if (engO) engO.stop(); eng = engO = null; },
     update(dt) {
@@ -4570,16 +4596,19 @@ function raceScene(lvIdx, lv, car, ocIn) {
           if (q && q !== 'TOP GEAR') { popup(q + ' SHIFT', q === 'PERFECT' ? PAL.green : q === 'GOOD' ? PAL.yellow : PAL.orange); audio.sfx('shift'); if (pp.turbo) audio.noise(0.25, 0.12, 3500, 1.5); }
         }
         if (nosHit && P.useNos()) { audio.sfx('nos'); popup('NITROUS!', PAL.teal, true); shake = settings.shake ? 1 : 0; }
-        if (!free && !O.launched && t - greenT >= oReact) { O.launch(t, oLaunchRpm); O.react = oReact; }
+        if (!free && !ghost && !O.launched && t - greenT >= oReact) { O.launch(t, oLaunchRpm); O.react = oReact; }
         O.ai(dt, t);
       }
       // physics (substeps)
       const sub = 4;
       for (let i = 0; i < sub; i++) {
-        P.step(dt / sub, gas && !foul || (!P.launched && gas)); O.step(dt / sub, !O.launched ? phase !== 'roll' : true);
+        P.step(dt / sub, gas && !foul || (!P.launched && gas));
+        if (ghost) { const gt2 = greenT < 0 ? -1 : t - greenT + (i + 1) * dt / sub - dt; const nx = Math.max(O.x, ghostX(ghost, gt2)); O.v = Math.max(0, (nx - O.x) / (dt / sub)); O.x = nx; if (!O.launched && nx > 0.01) { O.launched = true; O.launchT = t; } O.rpm = O.launched ? clamp(2500 + O.v * 60, 1000, op.rl) : 900; O.rot += O.v * (dt / sub) / (TAU * 0.32) * 8; }
+        else O.step(dt / sub, !O.launched ? phase !== 'roll' : true);
         for (const rc of [P, O]) if (rc.launched && !rc.finished && rc.x >= dist) { rc.finished = true; rc.finishT = t; rc.et = t - rc.launchT; if (rc === P) { popup('FINISH!', PAL.yellow, true); } }
       }
-      if (!O.launched && phase !== 'roll') O.rpm = clamp(O.rpm, 850, (op.band[0] + op.band[1]) / 2 + Math.sin(t * 9) * 600);
+      if (greenT >= 0 && !P.finished) while (rec.length * GHOST_DT <= t - greenT) rec.push(Math.round(P.x * 10) / 10);
+      if (!O.launched && phase !== 'roll' && !ghost) O.rpm = clamp(O.rpm, 850, (op.band[0] + op.band[1]) / 2 + Math.sin(t * 9) * 600);
       // suspension pitch
       const tp = P.launched ? clamp(P.acc / 9.81 * 2.4, -1.5, 3) : 0, to = O.launched ? clamp(O.acc / 9.81 * 2.4, -1.5, 3) : 0;
       pitchP += (tp - pitchP) * clamp(dt * 8, 0, 1); pitchO += (to - pitchO) * clamp(dt * 8, 0, 1);
@@ -4637,9 +4666,10 @@ function raceScene(lvIdx, lv, car, ocIn) {
       const ox = wx(O.x) - om.front;
       const vibO = !O.launched && phase !== 'roll' ? (Math.floor(t * 30) % 2) : 0;
       if (!free && ox > -110 && ox < W + 10) {
-        drawCar(oc, ox, LANE_FAR, { rot: O.rot, pitch: pitchO, bounce: -vibO, blur: O.v > 16, lights: lightsOn });
+        drawCar(oc, ox, LANE_FAR, { alpha: ghost ? 0.45 : 1, rot: O.rot, pitch: pitchO, bounce: -vibO, blur: O.v > 16, lights: lightsOn });
         drawFlame(O, ox, LANE_FAR);
         if (MODELS[oc.model].chute && O.finished && O.v > 3) drawChute(ox, LANE_FAR, O.finishT, t);
+        T.globalAlpha = 1;
       }
       if (fl > -10 && fl < W + 80) finishGantry(fl - 30, 118, t);
       // tree on median
@@ -4745,7 +4775,7 @@ function raceScene(lvIdx, lv, car, ocIn) {
         text(settings.autoGas ? 'TAP SHIFT WHEN THE LIGHTS HIT YELLOW/RED' : 'KEEP HOLDING GAS - SHIFT IN THE GREEN ZONE', 192, 30, '#e8ecff', { align: 'center', shadow: true });
       }
       if (result) this.drawResult();
-      else if (button('QUIT', 4, 25, 30, 11, { col: '#3a3f60' })) { dialog({ title: 'QUIT RACE?', lines: [free ? 'Leave the free run?' : 'Entry fee is not refunded.'], buttons: [{ label: 'STAY', col: '#3a3f60' }, { label: 'QUIT', col: PAL.red, cb: () => go(free ? freeRunScene(car.id) : levelsScene(car.id)) }] }); }
+      else if (button('QUIT', 4, 25, 30, 11, { col: '#3a3f60' })) { dialog({ title: 'QUIT RACE?', lines: [free || ghost ? 'Leave this run?' : lv.street ? 'Leaving forfeits your stake.' : 'Entry fee is not refunded.'], buttons: [{ label: 'STAY', col: '#3a3f60' }, { label: 'QUIT', col: PAL.red, cb: () => go(free ? freeRunScene(car.id) : ghost ? ghostScene(car.id) : levelsScene(car.id, lv.street ? 'street' : lv.event ? 'events' : 'career')) }] }); }
     },
     drawFreeResult() {
       const r = result;
@@ -4773,6 +4803,7 @@ function raceScene(lvIdx, lv, car, ocIn) {
       S.tut.race = 1;
       const r = result;
       if (r.free) return this.drawFreeResult();
+      if (r.cops && r.cops.stage !== 'done') return drawCops(r, car, pp);
       T.globalAlpha = 0.55; rect(0, 0, W, H, '#05060c'); T.globalAlpha = 1;
       panel(62, 22, 260, 174, { title: lv.n.toUpperCase(), titleCol: r.win ? '#1f4a2a' : '#4a1f24' });
       text(r.win ? 'YOU WIN!' : foul ? 'RED LIGHT - DISQUALIFIED' : 'YOU LOSE', 192, 40, r.win ? PAL.yellow : PAL.red, { s: foul ? 1 : 3, align: 'center', shadow: true, outline: true });
@@ -4791,12 +4822,14 @@ function raceScene(lvIdx, lv, car, ocIn) {
       r.rw.items.forEach(it => { icon('star', 72, y - 1, PAL.yellow); text(it, 84, y, PAL.yellow); y += 9; });
       (r.rw.lines || []).forEach(([l, c]) => { text(l, 72, y, c); y += 9; });
       if (!r.win && !foul) text('TIP: UPGRADE TIRES & ENGINE, OR NAIL YOUR SHIFTS', 192, y + 2, PAL.orange, { align: 'center' });
-      if (r.win && r.first && lvIdx + 1 < LEVELS.length) text('LEVEL CLEARED! BUY MORE RACES ON THE LEVELS SCREEN', 192, y + 2, PAL.green, { align: 'center' });
+      if (r.win && r.first && lvIdx + 1 < LEVELS.length && r.rw.items.length < 3) text('LEVEL CLEARED! BUY MORE RACES ON THE LEVELS SCREEN', 192, y + 2, PAL.green, { align: 'center' });
       const canRetry = S.cash >= (lv.fee || 0) && S.cars.includes(car) && !lv.bet && !lv.cup;
       if (lv.cup && r.win && lv.cup.round < 3) { if (button('NEXT ROUND', 72, 174, 72, 16, { col: PAL.green, icon: 'trophy' })) go(preRaceScene(-2, car.id, { cupRound: lv.cup.round + 1 })); }
+      else if (lv.street) { if (button('STREET', 72, 174, 72, 16, { col: '#c8326a', icon: 'flag' })) go(levelsScene(S.cars.includes(car) ? car.id : null, 'street')); }
+      else if (ghost) { if (button('RACE AGAIN', 72, 174, 72, 16, { col: PAL.orange, icon: 'flag' })) go(raceScene(-6, lv, car)); }
       else if (lv.quick && !lv.cup) { if (button('NEW RACE', 72, 174, 72, 16, { col: PAL.orange, icon: 'flag' })) go(preRaceScene(-1, S.cars.includes(car) ? car.id : null)); }
       else if (button('RETRY', 72, 174, 72, 16, { col: canRetry ? PAL.orange : '#4a4f6a', icon: 'flag' }) && canRetry) { S.cash -= lv.fee || 0; go(raceScene(lvIdx, lv, car)); }
-      if (button('LEVELS', 150, 174, 80, 16, { col: PAL.blue, icon: 'menu' })) go(levelsScene(S.cars.includes(car) ? car.id : null, lv.event ? 'events' : 'career'));
+      if (button(ghost ? 'GHOSTS' : 'LEVELS', 150, 174, 80, 16, { col: PAL.blue, icon: 'menu' })) go(ghost ? ghostScene(car.id) : levelsScene(S.cars.includes(car) ? car.id : null, lv.event ? 'events' : lv.street ? 'street' : 'career'));
       if (button('GARAGE', 236, 174, 78, 16, { col: '#3a6a3a', icon: 'house' })) go(garageScene());
     },
   };
@@ -4851,8 +4884,9 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) { sav
 loadSettings();
 goNow(loadingScene());
 requestAnimationFrame(frameLoop);
-window.PM = { EngineDSP, audio, soundProfile, ENGINE_SOUNDS, starterScene, openCodeEntry, setNow(v) { NOW = v; }, get S() { return S; }, set S(v) { S = v; }, go, goNow, newGame, loadGame, saveGame, nextDay, garageScene, menuScene, marketScene, carScene, repairScene, customizeScene, showroomScene, upgradesScene, partsScene, levelsScene, preRaceScene, raceScene, freeRunScene, EVENTS, settingsScene, auctionScene, officeScene, dynoScene, photoScene, detailScene, LEVELS, MODELS, RaceCar, makeCar, perf, estimateET, input, get scene() { return scene; }, dialog, get modal() { return ui.modal; } };
+window.PM = { EngineDSP, audio, soundProfile, ENGINE_SOUNDS, starterScene, openCodeEntry, setNow(v) { NOW = v; }, get S() { return S; }, set S(v) { S = v; }, go, goNow, newGame, loadGame, saveGame, nextDay, garageScene, menuScene, marketScene, carScene, repairScene, customizeScene, showroomScene, upgradesScene, partsScene, levelsScene, preRaceScene, raceScene, freeRunScene, EVENTS, get carry() { return PRESTIGE_CARRY; }, streetList, ghostScene, officeScene, takeLoan, revealSecret, makeCar2: (m, s) => makeCar(m, s), bankDay, checkStreak, codeHash, dynoScene, settingsScene, bossIntro, ghostCode, parseGhost, LEVELS, settingsScene, auctionScene, officeScene, dynoScene, photoScene, detailScene, LEVELS, MODELS, RaceCar, makeCar, perf, estimateET, input, get scene() { return scene; }, dialog, get modal() { return ui.modal; } };
 window.PM.gridScene = cars => ({ draw() { rect(0, 0, W, H, '#7a8aa0'); cars.forEach((c, i) => drawCar(c, (i % 4) * 96 - 4, 48 + Math.floor(i / 4) * 54, { rot: Math.floor(NOW * 6) })); } });
+window.PM.iconDraw = c => { rect(0, 0, W, H, "#0b0c14"); for (let y = 0; y < H; y += 6) hline(0, y, W, "#11131f"); rect(84, 0, 216, 216, "#141729"); rect(84, 150, 216, 66, "#1e2133"); hline(84, 150, 216, "#ffd23f"); drawCar(c, 92, 158, { s: 2 }); text("PIXEL", 192, 18, PAL.yellow, { s: 4, align: "center", outline: true, shadow: true }); text("MOTORS", 192, 52, "#ff5a3a", { s: 4, align: "center", outline: true, shadow: true }); };
 window.PM.bigScene = cars => ({ draw() { rect(0, 0, W, H, "#7a8aa0"); cars.forEach((c, i) => drawCar(c, (i % 2) * 192 - 8, 100 + Math.floor(i / 2) * 100, { s: 2 })); } });
 
 // ================= OFFICE (business hub), DYNO, PHOTO MODE, DETAILING =================
@@ -4868,8 +4902,9 @@ function silhouette(model) {
   _silCache.set(model, cv); return cv;
 }
 function officeScene(tab = 'daily') {
-  let page = 0, t = 0;
-  const TABS = [['daily', 'DAILY', 'cal'], ['orders', 'ORDERS', 'person'], ['staff', 'STAFF', 'wrench'], ['collect', 'CARS', 'car'], ['awards', 'AWARDS', 'trophy'], ['kits', 'KITS', 'box']];
+  let page = 0, t = 0, showSets = false;
+  checkWeekly();
+  const TABS = [['daily', 'DAILY', 'cal'], ['weekly', 'WEEK', 'star'], ['orders', 'ORDER', 'person'], ['staff', 'STAFF', 'wrench'], ['collect', 'CARS', 'car'], ['awards', 'AWARD', 'trophy'], ['kits', 'KITS', 'box'], ['bank', 'BANK', 'coin'], ['legend', 'LEGEND', 'crown']];
   function deliver(o) {
     const ok = garageCars().filter(c => orderOk(o, c));
     if (!ok.length) { toast('NO CAR IN YOUR GARAGE MEETS THIS ORDER YET', PAL.orange); audio.sfx('error'); return; }
@@ -4892,7 +4927,7 @@ function officeScene(tab = 'daily') {
     update(dt) { t += dt; },
     draw() {
       dimGarage(0.62);
-      TABS.forEach(([k, n, ic], i) => { if (button(n, 3 + i * 63, 17, 61, 14, { icon: ic, col: tab === k ? '#4a5bd0' : '#262b44', selected: tab === k })) { tab = k; page = 0; audio.sfx('tab'); } });
+      TABS.forEach(([k, n, ic], i) => { if (button(n, 3 + i * 42, 17, 40, 14, { icon: ic, col: tab === k ? '#4a5bd0' : '#262b44', selected: tab === k })) { tab = k; page = 0; audio.sfx('tab'); } });
       if (tab === 'daily') {
         panel(4, 34, 376, 98, { title: 'DAILY CHALLENGES - DAY ' + S.day });
         S.daily.list.forEach((d, i) => {
@@ -4905,6 +4940,12 @@ function officeScene(tab = 'daily') {
         panel(4, 136, 376, 60, { title: 'YESTERDAY AT THE SHOP' });
         const rep = S.report.length ? S.report : ['Quiet day. Press NEXT DAY in the garage to move time on.'];
         rep.slice(0, 4).forEach((l, i) => text(l, 10, 152 + i * 10, PAL.dim));
+      } else if (tab === 'weekly') {
+        drawWeekly();
+      } else if (tab === 'bank') {
+        drawBank();
+      } else if (tab === 'legend') {
+        drawLegend();
       } else if (tab === 'orders') {
         panel(4, 34, 376, 162, { title: 'CUSTOMER COMMISSIONS' });
         if (!S.orders.length) text('No orders right now. New customers call in every day.', 12, 56, PAL.dim);
@@ -4933,16 +4974,18 @@ function officeScene(tab = 'daily') {
         text('HOT TODAY: ' + S.trend.make.toUpperCase() + ' CARS - BUYERS PAY +20%', 10, 167, PAL.orange);
         text('Trends change every day. List the right make at the right time!', 10, 178, PAL.dim);
       } else if (tab === 'collect') {
-        const n = Object.keys(S.seen).length;
-        panel(4, 34, 376, 162, { title: 'COLLECTION BOOK  ' + n + '/' + MODEL_IDS.length });
+        S.owned = S.owned || {}; const n = MODEL_IDS.filter(id => S.owned[id]).length;
+        if (button(showSets ? 'BOOK' : 'SETS', 280, 36, 56, 10, { col: showSets ? '#3a3f60' : '#c8a020' })) { showSets = !showSets; audio.sfx('tab'); }
+        if (showSets) { drawSets(); drawHUD(); drawNav('OFFICE'); return; }
+        panel(4, 34, 376, 162, { title: 'COLLECTION BOOK  OWNED ' + n + '/' + MODEL_IDS.length });
         const per = 9, pages = Math.ceil(MODEL_IDS.length / per);
         page = clamp(page, 0, pages - 1);
         MODEL_IDS.slice(page * per, page * per + per).forEach((id, i) => {
-          const x = 10 + (i % 3) * 112, y = 48 + Math.floor(i / 3) * 46, M = MODELS[id], seen = S.seen[id];
+          const x = 10 + (i % 3) * 112, y = 48 + Math.floor(i / 3) * 46, M = MODELS[id], seen = S.owned[id], spotted = S.seen[id];
           rect(x, y, 108, 44, '#15182a');
           if (seen) drawCar({ model: id, seed: 2, comp: {}, up: {}, look: Object.assign({ paint: PAINTS[(i + page) % 12][1] }, M.stock || {}) }, x + 4, y + 36, { noShadow: true });
           else T.drawImage(silhouette(id), x + 4, y + 36 - GROUND, CW, CH);
-          text(seen ? M.make + ' ' + M.name : '???', x + 54, y + 36, seen ? RAR_COL[M.rar] : '#4a4f6a', { align: 'center' });
+          text(seen || spotted ? M.make + ' ' + M.name : '???', x + 54, y + 36, seen ? RAR_COL[M.rar] : spotted ? '#6a70a0' : '#4a4f6a', { align: 'center' }); if (seen) icon('check', x + 98, y + 2, PAL.green);
         });
         if (button('', 342, 36, 16, 10, { icon: 'left', col: '#3a3f60' })) page--;
         if (button('', 360, 36, 16, 10, { icon: 'right', col: '#3a3f60' })) page++;
@@ -4984,7 +5027,7 @@ function officeScene(tab = 'daily') {
 // ---------------- DYNO & TUNING ----------------
 function dynoScene(car) {
   car.tune = car.tune || { fd: 1, boost: 1 };
-  let run = -1, t = 0, eng = null, et = null, etKey = '', peak = null;
+  let run = -1, t = 0, eng = null, et = null, etKey = '', peak = null, view = 'dyno';
   const tuneKey = () => JSON.stringify(car.tune);
   function curve(p) {
     const pts = [];
@@ -5014,8 +5057,10 @@ function dynoScene(car) {
       drawCar(car, 6, 158, { s: 2, rot: spin, bounce: run >= 0 && Math.floor(t * 30) % 2 ? -1 : 0, noShadow: true });
       text(carName(car), 8, 36, '#e8ecff'); text(p.hp + ' HP  ' + (p.ev ? 'ELECTRIC' : p.cyl + ' CYL') + (p.turbo ? ' TURBO' : ''), 8, 45, PAL.orange);
       // graph
-      panel(214, 32, 168, 106, { title: 'DYNO SHEET' });
+      panel(214, 32, 168, 106, { title: view === 'gears' ? 'GEAR RATIOS' : 'DYNO SHEET' });
       const gx = 226, gy = 50, gw = 148, gh = 74;
+      if (!p.jet && button(view === 'gears' ? 'DYNO' : 'GEARS', 330, 34, 48, 10, { col: view === 'gears' ? '#3a3f60' : '#c8a020' })) { view = view === 'gears' ? 'dyno' : 'gears'; audio.sfx('tab'); }
+      if (view === 'gears' && !p.jet) { drawGearTuner(car, p, gx, gy, gw, gh); } else {
       rect(gx, gy, gw, gh, '#0c0e16'); for (let i = 1; i < 4; i++) hline(gx, gy + gh * i / 4, gw, '#1a1e2e'); for (let i = 1; i < 6; i++) vline(gx + gw * i / 6, gy, gh, '#1a1e2e');
       const c = curve(p), maxHp = Math.max(...c.map(q => q.hp)) * 1.1, maxTq = Math.max(...c.map(q => q.tq)) * 1.1;
       const lim = run >= 0 ? Math.min(1, run) : peak ? 1 : 0;
@@ -5031,6 +5076,7 @@ function dynoScene(car) {
       if (run >= 0) text(Math.round(1000 + (p.rl - 1000) * Math.min(1, run)) + ' RPM', gx + gw / 2, gy + 30, '#e8ecff', { align: 'center', shadow: true });
       else if (peak) text('PEAK ' + Math.round(peak.hp) + 'HP @ ' + Math.round(peak.rpm / 100) * 100, gx + gw / 2, gy + gh + 2, PAL.green, { align: 'center' });
       else text('PRESS RUN DYNO', gx + gw / 2, gy + 32, PAL.dim, { align: 'center' });
+      }
       // tuning
       panel(214, 140, 168, 56, { title: 'TUNING' });
       const fdv = slider('GEARING', 220, 156, 158, (car.tune.fd - 0.85) / 0.3);
@@ -5104,7 +5150,7 @@ function detailScene(car) {
 
 // ================= REDEEM CODES =================
 const CODES = {
-  COINS: { desc: '$100,000,000 COINS', give() { S.cash += 100000000; S.codes.COINS10 = S.codes.COINS100 = S.day; } },
+  COINS: { desc: '$25,000 COINS', give() { S.cash += 25000; } },
 };
 let _codeBox = null;
 function openCodeEntry() {
@@ -5128,16 +5174,500 @@ function openCodeEntry() {
   wrap.querySelector('form').onsubmit = e => {
     e.preventDefault();
     const code = inp.value.trim().toUpperCase();
-    const c = CODES[code];
+    const key = CODES[code] ? code : SECRET_CODES[codeHash(code)] ? 'S_' + codeHash(code) : null;
+    const c = CODES[code] || SECRET_CODES[codeHash(code)];
     S.codes = S.codes || {};
     if (!c) { msg.style.color = '#e8434b'; msg.textContent = 'INVALID CODE'; audio.sfx('error'); return; }
-    if (code === 'COINS' && S.codes.COINS && !S.codes.COINS100) { const add = S.codes.COINS10 ? 90000000 : 99000000; S.codes.COINS10 = S.codes.COINS100 = S.day; S.cash += add; saveGame(); audio.sfx('cash'); toast('CODE UPGRADED: +' + fmt$(add) + ' (NOW $100M TOTAL)', PAL.green); close(); return; }
-    if (S.codes[code]) { msg.style.color = '#ff8a2a'; msg.textContent = 'CODE ALREADY USED'; audio.sfx('error'); return; }
-    S.codes[code] = S.day; if (code === 'COINS') S.codes.COINS10 = S.day; c.give(); saveGame(); checkAch();
+    if (S.codes[key]) { msg.style.color = '#ff8a2a'; msg.textContent = 'CODE ALREADY USED'; audio.sfx('error'); return; }
+    S.codes[key] = S.day; c.give(); saveGame(); checkAch();
     audio.sfx('cash'); toast('CODE REDEEMED: ' + c.desc, PAL.green);
     close();
   };
   setTimeout(() => inp.focus(), 30);
+}
+
+// ================= META SYSTEMS: streaks, weeklies, ghosts, street, crews, bank, legend, collection sets =================
+const b64e = s => btoa(unescape(encodeURIComponent(s)));
+const b64d = s => decodeURIComponent(escape(atob(s)));
+function dateKey(off = 0) { const d = new Date(); d.setDate(d.getDate() + off); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function weekKey() { const d = new Date(); const day = (d.getDay() + 6) % 7; d.setDate(d.getDate() - day); return 'W' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function scaleCash(mult) { return Math.round((600 + (S.lvlDone || 0) * 450 + playerLevel() * 150) * mult / 50) * 50; }
+
+// ---------- DOM text box for share codes / save backups ----------
+function domBox(o) {
+  if (_codeBox) return;
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(5,6,12,.75);z-index:10;font-family:monospace';
+  const btn = (id, label, bg, fg = '#fff') => '<button type="button" id="' + id + '" style="flex:1;min-width:90px;font:bold 15px monospace;padding:10px;background:' + bg + ';color:' + fg + ';border:2px solid #0b0c14;cursor:pointer">' + label + '</button>';
+  wrap.innerHTML = '<div style="background:#1b1e2e;border:3px solid #3b4268;outline:3px solid #0b0c14;padding:16px 18px;display:flex;flex-direction:column;gap:10px;width:min(540px,92vw);box-shadow:0 8px 0 #0b0c14">' +
+    '<div style="color:#ffd23f;font:bold 18px monospace;letter-spacing:1px">' + o.title + '</div>' +
+    (o.note ? '<div style="color:#9aa3cc;font:13px monospace;line-height:1.4">' + o.note + '</div>' : '') +
+    '<textarea id="pmta" spellcheck="false" ' + (o.readonly ? 'readonly' : '') + ' placeholder="' + (o.placeholder || '') + '" style="height:' + (o.short ? 44 : 150) + 'px;font:12px monospace;background:#0b0c14;color:#e8ecff;border:2px solid #3b4268;padding:8px;resize:none;word-break:break-all"></textarea>' +
+    '<div id="pmmsg" style="color:#e8434b;font:13px monospace;min-height:16px"></div>' +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap">' + btn('pmclose', 'CLOSE', '#3a3f60') + (o.readonly ? btn('pmcopy', 'COPY', '#4a5bd0') : '') + (o.file ? btn('pmfile', 'DOWNLOAD', '#2a8a9a') : '') + (o.onOk ? btn('pmok', o.okLabel || 'OK', '#5fd35a', '#0b0c14') : '') + '</div></div>';
+  document.body.appendChild(wrap); _codeBox = wrap;
+  const ta = wrap.querySelector('#pmta'), msg = wrap.querySelector('#pmmsg');
+  ta.value = o.value || '';
+  const close = () => { wrap.remove(); _codeBox = null; input.keys = {}; view.focus(); };
+  wrap.addEventListener('pointerdown', e => e.stopPropagation());
+  wrap.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Escape') close(); });
+  wrap.querySelector('#pmclose').onclick = close;
+  const cp = wrap.querySelector('#pmcopy');
+  if (cp) cp.onclick = () => { ta.select(); const ok = () => { msg.style.color = '#5fd35a'; msg.textContent = 'COPIED!'; }; if (navigator.clipboard) navigator.clipboard.writeText(ta.value).then(ok, () => { document.execCommand('copy'); ok(); }); else { document.execCommand('copy'); ok(); } };
+  const fl = wrap.querySelector('#pmfile');
+  if (fl) fl.onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ta.value], { type: 'text/plain' })); a.download = o.file; document.body.appendChild(a); a.click(); a.remove(); };
+  const okb = wrap.querySelector('#pmok');
+  if (okb) okb.onclick = () => { const err = o.onOk(ta.value.trim()); if (err) { msg.style.color = '#e8434b'; msg.textContent = err; audio.sfx('error'); } else close(); };
+  setTimeout(() => { if (o.readonly) ta.select(); else ta.focus(); }, 30);
+}
+
+// ---------- secret codes (hashed so they can't be read from the page source) ----------
+function codeHash(s) { let h = 5381; for (const ch of s) h = ((h * 33) ^ ch.charCodeAt(0)) >>> 0; return h.toString(36); }
+const SECRET_CODES = { '1bemmcx': { desc: '$100,000,000 - BOSS MODE', give() { S.cash += 100000000; } } };
+
+// ---------- collection sets ----------
+const SETS = [
+  { id: 'street', n: 'Street Starters', f: M => !M.bike && !M.truck && !M.nitro && M.price < 40000, b: '+5% CAR SALE OFFERS', k: 'sale', v: 0.05 },
+  { id: 'muscle', n: 'Muscle & Classics', f: M => !M.bike && /Muscle|Classic|Pony|Roadster|Wagon|Grand Tourer/.test(M.cls), b: '+5% RACE PRIZE MONEY', k: 'prize', v: 0.05 },
+  { id: 'super', n: 'Supercar Stable', f: M => !M.bike && !M.truck && !M.nitro && M.price >= 150000, b: '+5% RACE PRIZE MONEY', k: 'prize', v: 0.05 },
+  { id: 'trucks', n: 'Truck Yard', f: M => !!M.truck, b: '-10% REPAIR COSTS', k: 'repair', v: 0.10 },
+  { id: 'bikes', n: 'Two Wheels', f: M => !!M.bike, b: '+10% REP FROM RACES', k: 'rep', v: 0.10 },
+  { id: 'nitro', n: 'Nitro Garage', f: M => !!M.nitro, b: '+10% RACE PRIZE MONEY', k: 'prize', v: 0.10 },
+];
+const setIds = s => MODEL_IDS.filter(id => s.f(MODELS[id]));
+const setGot = s => setIds(s).filter(id => S.owned && S.owned[id]).length;
+const setDone = s => setGot(s) >= setIds(s).length;
+function setBonus(k) { return S ? SETS.filter(s => s.k === k && setDone(s)).reduce((a, s) => a + s.v, 0) : 0; }
+function prizeMul() { return (1 + setBonus('prize')) * (1 + 0.10 * (S.prestige || 0)); }
+function trackOwned() { S.owned = S.owned || {}; for (const c of S.cars) if (!S.owned[c.model]) { S.owned[c.model] = 1; for (const s of SETS) if (s.f(MODELS[c.model]) && setDone(s)) setTimeout(() => { toast('SET COMPLETE: ' + s.n.toUpperCase() + '! ' + s.b, PAL.yellow); audio.sfx('level'); }, 400); } }
+
+// ---------- daily login streak (real calendar days) ----------
+const STREAK_R = [{ cash: 1 }, { cash: 2 }, { kit: 2 }, { cash: 4 }, { part: 2 }, { cash: 6 }, { cash: 12, part: 3 }];
+const kfmt = c => c >= 1000 ? (Math.round(c / 100) / 10) + 'K' : String(c);
+function streakLabel(r) { return r.part && r.cash ? 'BIG!' : r.cash ? kfmt(scaleCash(r.cash)) : r.kit ? 'KITS' : 'PART'; }
+function randPart(lvl) { const k = pick(['engine', 'turbo', 'tires', 'trans', 'susp', 'exhaust', 'intake', 'ecu', 'weight']); return { k, lv: Math.min(lvl, PERF[k].lv.length - 1) }; }
+function checkStreak() {
+  if (!S || _codeBox || dialogOpen()) return;
+  S.streak = S.streak || { last: null, n: 0, best: 0 };
+  const tk = dateKey(); if (S.streak.last === tk) return;
+  S.streak.n = S.streak.last === dateKey(-1) ? S.streak.n + 1 : 1; S.streak.last = tk; S.streak.best = Math.max(S.streak.best, S.streak.n);
+  const di = (S.streak.n - 1) % 7, r = STREAK_R[di], got = [];
+  if (r.cash) { const c = scaleCash(r.cash); S.cash += c; got.push(fmt$(c)); }
+  if (r.kit) for (let i = 0; i < r.kit; i++) { const c = pick(COMPS); S.kits[c.id] = (S.kits[c.id] || 0) + 1; got.push(c.n + ' kit'); }
+  if (r.part) { const p = randPart(r.part); S.parts.push(p); got.push(PERF[p.k].lv[p.lv].n + ' (' + PERF[p.k].n + ')'); }
+  saveGame(); audio.sfx('cash');
+  dialog({ title: 'DAILY STREAK - DAY ' + S.streak.n, w: 300, extraH: 52, lines: ['Welcome back! Come back tomorrow to keep the streak going.'],
+    draw(x, y) {
+      for (let i = 0; i < 7; i++) {
+        const bx = x + 12 + i * 40, by = y + 22, past = i < di, now = i === di;
+        rect(bx, by, 36, 30, now ? '#3a6a3a' : past ? '#24302a' : '#1a1e30'); frame(bx, by, 36, 30, now ? PAL.yellow : PAL.edge);
+        text('DAY ' + (i + 1), bx + 18, by + 3, now ? PAL.yellow : PAL.dim, { align: 'center' });
+        icon(past ? 'check' : i === 6 ? 'crown' : STREAK_R[i].part ? 'engine' : STREAK_R[i].kit ? 'box' : 'coin', bx + 14, by + 12, past ? PAL.green : now ? '#ffffff' : '#6a70a0');
+        text(streakLabel(STREAK_R[i]), bx + 18, by + 22, now ? '#e8ecff' : '#6a70a0', { align: 'center' });
+      }
+      text('TODAY: ' + got.join(' + ').toUpperCase().slice(0, 58), x + 150, y + 58, PAL.green, { align: 'center' });
+    },
+    buttons: [{ label: 'COLLECT!', col: PAL.green }] });
+}
+function dialogOpen() { return !!ui.modal; }
+
+// ---------- weekly challenges ----------
+const WEEKLY_T = [
+  { k: 'win', n: 12, t: 'Win 12 races', r: 4 }, { k: 'streetWin', n: 3, t: 'Win 3 street races', r: 5 }, { k: 'ghostWin', n: 2, t: 'Beat 2 ghosts', r: 4 },
+  { k: 'sell', n: 4, t: 'Sell 4 cars', r: 5 }, { k: 'install', n: 8, t: 'Install 8 upgrades', r: 4 }, { k: 'mileWin', n: 2, t: 'Win 2 races of a mile or longer', r: 5 },
+  { k: 'top300', n: 1, t: 'Hit 300 km/h in a Free Run', r: 4 }, { k: 'bikeWin', n: 3, t: 'Win 3 races on a bike', r: 5, need: c => MODELS[c.model].bike },
+  { k: 'truckWin', n: 3, t: 'Win 3 races in a truck', r: 5, need: c => MODELS[c.model].truck }, { k: 'perfectLaunch', n: 6, t: 'Get 6 perfect launches', r: 3 },
+  { k: 'repair', n: 10, t: 'Finish 10 repair jobs', r: 3 }, { k: 'buy', n: 4, t: 'Buy 4 cars', r: 3 }, { k: 'bossWin', n: 1, t: 'Beat a crew boss', r: 6 },
+];
+function weeklyReward(w) { return Math.round((1500 + (S.lvlDone || 0) * 700) * w.r / 100) * 100; }
+function checkWeekly() {
+  const wk = weekKey();
+  if (S.weekly && S.weekly.key === wk) return;
+  const pool = WEEKLY_T.filter(w => !w.need || S.cars.some(w.need)).slice().sort(() => Math.random() - 0.5).slice(0, 3);
+  S.weekly = { key: wk, chest: false, list: pool.map(w => ({ k: w.k, n: w.n, t: w.t, r: weeklyReward(w), p: 0, done: false })) };
+  saveGame();
+}
+function weeklyEv(k, n) {
+  if (!S.weekly) return;
+  for (const w of S.weekly.list) if (!w.done && w.k === k) {
+    w.p = Math.min(w.n, w.p + n);
+    if (w.p >= w.n) { w.done = true; S.cash += w.r; S.rep += 10; toast('WEEKLY DONE: ' + w.t.toUpperCase() + ' +' + fmt$(w.r), PAL.yellow); audio.sfx('level'); }
+  }
+  if (!S.weekly.chest && S.weekly.list.every(w => w.done)) { S.weekly.chest = true; const p = randPart(3); S.parts.push(p); const c = scaleCash(15); S.cash += c; setTimeout(() => toast('WEEKLY CHEST: ' + fmt$(c) + ' + ' + PERF[p.k].lv[p.lv].n.toUpperCase(), PAL.yellow), 900); }
+}
+
+// ---------- ghosts (record your best runs, share them as codes) ----------
+const GHOST_DT = 0.05;
+function saveGhost(car, dist, track, gt, et, xs) {
+  if (!xs || xs.length < 10) return false;
+  S.ghosts = S.ghosts || {};
+  const g = S.ghosts[dist];
+  if (g && g.gt <= gt) return false;
+  S.ghosts[dist] = { who: S.driver || 'YOU', c: carName(car), m: car.model, l: Object.assign({}, car.look), d: dist, tr: track, gt: Math.round(gt * 1000) / 1000, et: Math.round(et * 1000) / 1000, xs, mine: 1 };
+  return true;
+}
+function ghostCode(g) {
+  let p = 0; const dx = g.xs.map(x => { const v = Math.round(x * 10), d = v - p; p = v; return d; });
+  return 'PMG1' + b64e(JSON.stringify({ w: g.who, c: g.c, m: g.m, l: g.l, d: g.d, tr: g.tr, gt: g.gt, et: g.et, x: dx.join(',') }));
+}
+function parseGhost(code) {
+  code = code.replace(/\s+/g, '');
+  if (!code.startsWith('PMG1')) return null;
+  try {
+    const o = JSON.parse(b64d(code.slice(4)));
+    if (!MODELS[o.m] || !o.d || !o.x) return null;
+    let p = 0; const xs = String(o.x).split(',').map(n => (p += +n) / 10);
+    return { who: String(o.w || 'FRIEND').slice(0, 12).toUpperCase(), c: String(o.c || '').slice(0, 30), m: o.m, l: o.l || {}, d: +o.d, tr: TRACKS[o.tr] ? o.tr : 'airport', gt: +o.gt, et: +o.et, xs };
+  } catch (e) { return null; }
+}
+function ghostX(g, tt) {
+  if (tt <= 0) return 0;
+  const i = tt / GHOST_DT, a = Math.floor(i), n = g.xs.length;
+  if (a >= n - 1) { const v = (g.xs[n - 1] - g.xs[n - 2]) / GHOST_DT; return g.xs[n - 1] + v * (tt - (n - 1) * GHOST_DT); }
+  return g.xs[a] + (g.xs[a + 1] - g.xs[a]) * (i - a);
+}
+function allGhosts(dist) {
+  const list = [];
+  if (S.ghosts && S.ghosts[dist]) list.push(S.ghosts[dist]);
+  for (const g of S.ghostIn || []) if (g.d === dist) list.push(g);
+  return list.sort((a, b) => a.gt - b.gt);
+}
+function ghostScene(preferCarId) {
+  const cars = () => garageCars();
+  let ci = Math.max(0, cars().findIndex(c => c.id === preferCarId)), t = 0;
+  const GD = [201, 402, 804, 1609, 3219];
+  S.ghostD = S.ghostD || 402; S.ghostIn = S.ghostIn || [];
+  return {
+    enter() { audio.playMusic('menu'); },
+    update(dt) { t += dt; },
+    draw() {
+      const L = getTrackLayers('night');
+      blit(L.sky, 0, 0); tileX(L.far, t * 6, 0); tileX(L.mid, t * 16, 0); tileX(L.near, t * 60, 82); tileX(L.fence, t * 60, 52); tileX(L.road, t * 60, 118);
+      T.globalAlpha = 0.5; rect(0, 0, W, H, '#05060c'); T.globalAlpha = 1;
+      const cs = cars();
+      text('GHOST RACES & LEADERBOARD', 192, 19, PAL.yellow, { align: 'center', shadow: true, outline: true });
+      // car picker
+      panel(4, 32, 128, 92, { title: 'YOUR CAR' });
+      if (cs.length) {
+        ci = (ci + cs.length) % cs.length; const car = cs[ci], p = perf(car);
+        drawCar(car, 18, 92, {});
+        text(carName(car).slice(0, 22), 10, 98, '#e8ecff'); text(p.hp + ' HP', 10, 107, PAL.orange);
+        if (button('', 92, 104, 16, 14, { icon: 'left', col: '#3a3f60' })) ci--;
+        if (button('', 112, 104, 16, 14, { icon: 'right', col: '#3a3f60' })) ci++;
+      } else text('Buy a car first!', 10, 60, PAL.dim);
+      // how it works
+      panel(4, 128, 128, 68, { title: 'HOW IT WORKS' });
+      wrapText('Every race you finish saves your best run as a ghost. Share the code with friends - their ghosts join your leaderboard and you can race them!', 118).slice(0, 6).forEach((l, i) => text(l, 10, 143 + i * 9, PAL.dim));
+      // leaderboard
+      panel(136, 32, 244, 164, { title: 'LEADERBOARD' });
+      GD.forEach((d, i) => { if (button(distName(d).replace(' MILE', ''), 142 + i * 47, 47, 44, 12, { col: S.ghostD === d ? '#4a5bd0' : '#262b44', selected: S.ghostD === d })) { S.ghostD = d; audio.sfx('tab'); } });
+      const list = allGhosts(S.ghostD);
+      if (!list.length) wrapText('No ghosts at this distance yet. Finish a ' + distName(S.ghostD) + ' race (quick race lets you pick the distance) or import a friend\'s code.', 228).forEach((l, i) => text(l, 144, 72 + i * 10, PAL.dim));
+      list.slice(0, 7).forEach((g, i) => {
+        const y = 64 + i * 15;
+        rect(140, y, 236, 14, g.mine ? '#26402e' : i % 2 ? '#20243a' : '#1a1e30');
+        text(String(i + 1), 146, y + 4, i === 0 ? PAL.yellow : PAL.dim);
+        text((g.mine ? (S.driver || 'YOU') : g.who).slice(0, 10), 156, y + 4, g.mine ? PAL.green : '#e8ecff');
+        text(g.c.toUpperCase().slice(0, 16), 206, y + 4, PAL.dim);
+        text(g.gt.toFixed(2) + 'S', 318, y + 4, PAL.yellow, { align: 'right' });
+        if (button('RACE', 322, y + 1, 26, 12, { col: PAL.red })) {
+          const car = cs[ci];
+          if (!car) { toast('BUY A CAR FIRST', PAL.red); audio.sfx('error'); }
+          else if (perf(car).issue) { toast('CAR CANNOT RACE: ' + perf(car).issue, PAL.red); audio.sfx('error'); }
+          else {
+            const lv = { n: 'Ghost Race', ghost: g, rec: 'Any', diff: 'Ghost', dist: g.d, reward: 0, rep: 1, xp: 10, fee: 0, track: g.tr || 'airport', weather: 'clear',
+              opp: { name: (g.mine ? 'YOUR' : g.who + "'S") + ' GHOST', model: g.m, hp: MODELS[g.m].hp, ai: 0.5, look: g.l, face: { skin: '#c9ced8', hair: '#e8ecff', style: 'short', shirt: '#4a5bd0' } } };
+            go(raceScene(-6, lv, car));
+          }
+        }
+        if (g.mine) { if (button('CODE', 350, y + 1, 26, 12, { col: '#4a5bd0' })) domBox({ title: 'SHARE YOUR GHOST', readonly: true, value: ghostCode(g), file: 'pixel-motors-ghost.txt', note: 'Send this code to a friend. They paste it in GHOSTS > IMPORT to race your ' + distName(g.d) + ' run (' + g.gt.toFixed(2) + 's in your ' + g.c + ').' }); }
+        else if (button('DEL', 350, y + 1, 26, 12, { col: '#8a2a2a' })) { S.ghostIn = S.ghostIn.filter(q => q !== g); saveGame(); }
+      });
+      if (button('IMPORT CODE', 142, 178, 112, 14, { col: '#2a8a9a', icon: 'box' })) domBox({ title: 'IMPORT A GHOST', placeholder: 'Paste a PMG1... code here', okLabel: 'ADD GHOST', note: 'Paste a ghost code from a friend. Their run joins your leaderboard.',
+        onOk(v) { const g = parseGhost(v); if (!g) return 'THAT IS NOT A VALID GHOST CODE'; S.ghostIn = (S.ghostIn || []).filter(q => !(q.who === g.who && q.d === g.d)); S.ghostIn.unshift(g); S.ghostIn = S.ghostIn.slice(0, 12); S.ghostD = g.d; saveGame(); toast('GHOST ADDED: ' + g.who + ' ' + g.gt.toFixed(2) + 'S', PAL.green); audio.sfx('good'); } });
+      if (button('NAME: ' + (S.driver || 'YOU'), 260, 178, 116, 14, { col: '#3a3f60', icon: 'person' })) domBox({ title: 'YOUR DRIVER NAME', short: true, value: S.driver || '', placeholder: 'e.g. BRODIE', okLabel: 'SAVE', note: 'Shown on your shared ghosts (max 12 letters).',
+        onOk(v) { v = v.toUpperCase().replace(/[^A-Z0-9 _-]/g, '').slice(0, 12); if (!v) return 'TYPE A NAME'; S.driver = v; for (const k in (S.ghosts || {})) S.ghosts[k].who = v; saveGame(); } });
+      drawHUD(); backBtn(() => levelsScene(cs[ci] && cs[ci].id));
+    },
+  };
+}
+
+// ---------- street racing ----------
+const STREET_NAMES = ['Viper', 'Low Rider Lou', 'Neon', 'Smokey', 'Rook', 'Dice', 'Ghost Rider', 'Slick Rick', 'Mamba', 'Trixie', 'Big Al', 'Kenji', 'Razor', 'Duchess'];
+function streetList() {
+  if (S.street && S.street.day === S.day && S.street.list.length) return S.street.list;
+  const best = Math.max(120, ...garageCars().map(c => perf(c).hp));
+  const pool = MODEL_IDS.filter(id => !MODELS[id].noShop);
+  const names = STREET_NAMES.slice().sort(() => Math.random() - 0.5);
+  S.street = { day: S.day, list: [0.85, 1.0, 1.12, 1.28].map((k, i) => {
+    const hp = Math.round(best * k * rnd(0.95, 1.05));
+    const model = pool.slice().sort((a, b) => Math.abs(MODELS[a].hp - hp) - Math.abs(MODELS[b].hp - hp))[Math.floor(Math.random() * 3)];
+    return { name: names[i], model, hp, ai: [0.45, 0.6, 0.72, 0.85][i], heat: i, cop: [0.15, 0.25, 0.35, 0.45][i], dist: Math.random() < 0.5 ? 201 : 402,
+      bet: Math.round((300 + hp * 3.2) * [1, 1.6, 2.4, 3.6][i] / 50) * 50, done: false,
+      look: { paint: pick(PAINTS)[1], rim: pick(['five', 'mesh', 'deep', 'turbine']), rimCol: pick(RIM_COLS)[1], spoiler: pick(['none', 'duck', 'gt', 'wing']), glow: pick(['#3fd6c0', '#ff4fa3', '#4a8cff', '#a6e22e']), tint: 1 },
+      face: { skin: pick(['#e0ac7e', '#c68a5e', '#8a5a3a', '#f0c8a0']), hair: pick(['#3a2518', '#14141a', '#c07030', '#e8e8f0']), style: pick(['short', 'spiky', 'cap', 'long', 'slick']), cap: '#1c1d24', shirt: pick(['#1c1d24', '#2a2c36', '#5a1a2a', '#1a2a5a']) } };
+  }) };
+  return S.street.list;
+}
+function streetLv(r) {
+  return { n: 'Street Race', rec: 'Any', diff: 'Street', dist: r.dist, reward: 0, rep: 3 + r.heat, xp: 20 + r.heat * 5, fee: 0, track: 'night', street: r,
+    opp: { name: r.name, model: r.model, hp: r.hp, ai: r.ai, up: { tires: 1 + Math.min(2, r.heat), trans: r.heat > 1 ? 2 : 1 }, look: r.look, face: r.face, tag: 'Street racer' } };
+}
+function drawStreetRow(i, y, preferCarId) {
+  const r = streetList()[i]; if (!r) return;
+  panel(4, y, 352, 37, { fill: r.done ? '#1a2a24' : '#2a1a2a', edge: r.done ? PAL.edge : '#ff4fa3' });
+  portrait(10, y + 6, r.face, 1);
+  text(r.name, 40, y + 6, '#ffffff'); text(['WARM-UP', 'LOCAL HOTSHOT', 'BLOCK BOSS', 'CITY LEGEND'][r.heat], 40 + measure(r.name) + 8, y + 6, '#ff8ac0');
+  text(MODELS[r.model].make + ' ' + MODELS[r.model].name + ' ' + r.hp + 'HP - ' + distName(r.dist), 40, y + 15, '#c9ced8');
+  text('COP RISK', 40, y + 25, PAL.dim); for (let k = 0; k < 4; k++) rect(86 + k * 7, y + 25, 5, 6, k <= r.heat ? (k > 1 ? PAL.red : PAL.orange) : '#2a2d40');
+  text(r.done ? 'BEATEN TONIGHT' : 'STAKES ' + fmt$(r.bet), 350, y + 6, r.done ? PAL.green : PAL.cash, { align: 'right' });
+  text('WINNER TAKES ALL', 350, y + 15, PAL.dim, { align: 'right' });
+  if (!r.done && hit(4, y, 352, 37)) { audio.sfx('click'); go(preRaceScene(-5, preferCarId, { street: i })); }
+}
+function drawCops(r, car, pp) {
+  const c = r.cops, flash = Math.floor(NOW * 6) % 2;
+  T.globalAlpha = 0.6; rect(0, 0, W, H, '#05060c'); T.globalAlpha = 0.35; rect(0, 0, W / 2, H, flash ? '#ff2a3a' : '#2a4aff'); rect(W / 2, 0, W / 2, H, flash ? '#2a4aff' : '#ff2a3a'); T.globalAlpha = 1;
+  panel(82, 40, 220, 132, { title: 'POLICE!', titleCol: '#8a1a2a' });
+  if (c.stage === 'ask') {
+    if (!c.siren) { c.siren = 1; for (let i = 0; i < 4; i++) audio.tone(i % 2 ? 620 : 900, 0.3, 'square', 0.05, i * 0.3, i % 2 ? 900 : 620); }
+    wrapText('Sirens! Someone called in the street race. Floor it and try to lose them, or pull over and pay the fine.', 200).forEach((l, i) => text(l, 92, 58 + i * 10, '#e8ecff'));
+    text('ESCAPE CHANCE ' + Math.round(c.chance * 100) + '% (FASTER CARS ESCAPE MORE)', 192, 104, PAL.yellow, { align: 'center' });
+    if (button('RUN FOR IT!', 92, 120, 96, 18, { col: PAL.red, icon: 'bolt' })) {
+      if (Math.random() < c.chance) { c.stage = 'free'; S.rep += 4; audio.sfx('win'); }
+      else { c.stage = 'caught'; c.paid = Math.min(S.cash, c.fine * 2); S.cash -= c.paid; S.rep = Math.max(0, S.rep - 3); audio.sfx('error'); }
+      saveGame();
+    }
+    if (button('PAY ' + fmt$(c.fine), 196, 120, 96, 18, { col: '#3a3f60', icon: 'coin' })) { c.stage = 'paid'; c.paid = Math.min(S.cash, c.fine); S.cash -= c.paid; saveGame(); audio.sfx('buy'); }
+    text('RUNNING AND GETTING CAUGHT DOUBLES THE FINE', 192, 146, PAL.dim, { align: 'center' });
+  } else {
+    const msg = { free: ['YOU LOST THEM!', 'Ducked down an alley and killed the lights. +4 REP', PAL.green], caught: ['BUSTED!', 'They boxed you in. Fine doubled: -' + fmt$(c.paid) + ', -3 REP', PAL.red], paid: ['TICKET PAID', 'You pulled over and paid ' + fmt$(c.paid) + '. Clean record.', PAL.orange] }[c.stage];
+    text(msg[0], 192, 66, msg[2], { s: 2, align: 'center', shadow: true });
+    wrapText(msg[1], 200).forEach((l, i) => text(l, 192, 94 + i * 10, '#e8ecff', { align: 'center' }));
+    if (button('CONTINUE', 142, 140, 100, 18, { col: PAL.green })) c.stage = 'done';
+  }
+}
+
+// ---------- rival crews & bosses ----------
+const CREWS = [
+  { n: 'Rust Rats', col: '#c07030', talk: ['You call that a car? My grandma\'s shopping cart has more pull.', 'Win, and my ride is yours. Lose, and go back to the bus stop.'] },
+  { n: 'Neon Kings', col: '#ff4fa3', talk: ['The Neon Kings own this town after dark.', 'Beat me and you can take my car as a souvenir. You won\'t.'] },
+  { n: 'Desert Vipers', col: '#e0b030', talk: ['Out here the sand eats slow cars alive.', 'My car is the fastest thing in the desert. Prove me wrong and keep it.'] },
+  { n: 'Midnight Syndicate', col: '#4a8cff', talk: ['We don\'t race for fun. We race for keys.', 'Cross the line first and my car is yours. That has never happened.'] },
+  { n: 'Iron Legion', col: '#c9ced8', talk: ['Six years undefeated. You are race number four hundred.', 'Pink slip rules. Your move, rookie.'] },
+  { n: 'The Apex Council', col: '#ffd23f', talk: ['So, you made it to the top table.', 'Beat me and you are the new legend of this city. My car comes with the title.'] },
+];
+const isBoss = i => i >= 0 && i % 4 === 3;
+const crewOf = i => CREWS[Math.min(CREWS.length - 1, Math.floor(i / 4))];
+function bossIntro(i, lv) {
+  const cr = crewOf(i);
+  dialog({ title: cr.n.toUpperCase() + ' BOSS: ' + lv.opp.name.toUpperCase(), w: 290, extraH: 62, lines: [],
+    draw(x, y) { portrait(x + 12, y + 22, lv.opp.face, 1); cr.talk.forEach((l, k) => wrapText('"' + l + '"', 230).forEach((w, j) => text(w, x + 44, y + 20 + k * 20 + j * 9, k ? '#ffd23f' : '#e8ecff'))); text('FIRST WIN: TAKE THEIR CAR (PINK SLIP)', x + 145, y + 64, '#ff8ac0', { align: 'center' }); },
+    buttons: [{ label: 'BRING IT', col: PAL.red }] });
+}
+function bossReward(i, oc, rw) {
+  const nc = JSON.parse(JSON.stringify(oc)); nc.id = uid(); nc.mileage = Math.round(rnd(5000, 30000)); nc.paid = 0; nc.dirt = 0.1;
+  nc.comp = {}; for (const cc of COMPS) if (cc.id !== 'turbo' || MODELS[nc.model].turbo) nc.comp[cc.id] = Math.round(rnd(0.85, 0.98) * 100) / 100;
+  if (hasRoom()) S.cars.push(nc); else { nc.listed = true; nc.ask = carValue(nc); S.cars.push(nc); }
+  markSeen(nc.model); rw.items.push(crewOf(i).n.toUpperCase() + ' BEATEN! WON ' + carName(nc).toUpperCase() + (nc.listed ? ' (SHOWROOM)' : '')); ev('bossWin');
+}
+
+// ---------- bank & loans ----------
+const LOANS = [
+  { n: 'QUICK CASH', amt: 10000, rate: 0.10, days: 5, min: 0 },
+  { n: 'BUSINESS LOAN', amt: 50000, rate: 0.15, days: 10, min: 600 },
+  { n: 'BIG MONEY', amt: 250000, rate: 0.25, days: 15, min: 700 },
+];
+const loanMul = () => 1 + Math.floor((S.lvlDone || 0) / 6);
+const creditName = c => c < 580 ? ['POOR', PAL.red] : c < 670 ? ['FAIR', PAL.orange] : c < 740 ? ['GOOD', PAL.green] : ['EXCELLENT', PAL.teal];
+function takeLoan(i) {
+  const L = LOANS[i], amt = L.amt * loanMul(), owed = Math.round(amt * (1 + L.rate));
+  S.loan = { n: L.n, amt, owed, per: Math.ceil(owed / L.days / 10) * 10, left: L.days, missed: 0 };
+  S.cash += amt; audio.sfx('cash'); saveGame(); toast('LOAN APPROVED: +' + fmt$(amt), PAL.green);
+}
+function bankDay(rep) {
+  S.credit = S.credit || 650;
+  const ln = S.loan; if (!ln) return;
+  const due = Math.min(ln.per, ln.owed);
+  if (S.cash >= due) {
+    S.cash -= due; ln.owed -= due; ln.left--; S.credit = Math.min(850, S.credit + 6);
+    if (ln.owed <= 0) { S.loan = null; S.credit = Math.min(850, S.credit + 25); rep.push('LOAN PAID OFF! Credit rating up.'); }
+    else rep.push('Loan payment ' + fmt$(due) + ' (' + fmt$(ln.owed) + ' left)');
+  } else {
+    ln.missed++; const fee = Math.round(due * 0.1 / 10) * 10; ln.owed += fee; S.credit = Math.max(300, S.credit - 40);
+    rep.push('MISSED loan payment! Late fee ' + fmt$(fee) + ' (' + ln.missed + '/3 strikes)');
+    if (ln.missed >= 3) {
+      const cs = S.cars.slice().sort((a, b) => carValue(b) - carValue(a));
+      if (cs.length) { const c = cs[0], v = Math.round(carValue(c) * 0.75); S.cars = S.cars.filter(q => q !== c); S.offers = S.offers.filter(o => o.carId !== c.id); ln.owed -= v; ln.missed = 0;
+        rep.push('REPO! The tow truck took your ' + carName(c) + ' (' + fmt$(v) + ' off the loan)'); toast('REPOSSESSED: ' + carName(c).toUpperCase(), PAL.red);
+        if (ln.owed <= 0) { S.cash += -ln.owed; S.loan = null; } }
+    }
+  }
+}
+function drawBank() {
+  S.credit = S.credit || 650;
+  const [cn, cc] = creditName(S.credit);
+  panel(4, 34, 140, 162, { title: 'PIXEL BANK' });
+  text('CREDIT RATING', 10, 52, PAL.dim); text(String(S.credit), 10, 62, cc, { s: 2 }); text(cn, 60, 66, cc);
+  bar(10, 82, 128, 6, (S.credit - 300) / 550, cc);
+  wrapText('Pay on time to raise your rating and unlock bigger loans. Payments come out automatically each day. Miss 3 and the tow truck takes your best car.', 128).forEach((l, i) => text(l, 10, 96 + i * 9, PAL.dim));
+  panel(148, 34, 232, 162, { title: S.loan ? 'ACTIVE LOAN' : 'LOAN OFFERS' });
+  if (S.loan) {
+    const ln = S.loan;
+    text(ln.n, 156, 52, PAL.yellow); text('BORROWED ' + fmt$(ln.amt), 156, 64, '#e8ecff');
+    text('STILL OWED', 156, 78, PAL.dim); text(fmt$(ln.owed), 374, 78, PAL.red, { align: 'right' });
+    text('DAILY PAYMENT', 156, 90, PAL.dim); text(fmt$(ln.per), 374, 90, '#e8ecff', { align: 'right' });
+    text('PAYMENTS LEFT', 156, 102, PAL.dim); text(String(Math.max(1, Math.ceil(ln.owed / ln.per))), 374, 102, '#e8ecff', { align: 'right' });
+    text('MISSED', 156, 114, PAL.dim); text(ln.missed + '/3', 374, 114, ln.missed ? PAL.red : PAL.green, { align: 'right' });
+    if (S.cash < ln.per) text('WARNING: NOT ENOUGH CASH FOR TOMORROW!', 264, 130, PAL.red, { align: 'center' });
+    if (button('REPAY ALL ' + fmt$(ln.owed), 156, 172, 216, 16, { col: S.cash >= ln.owed ? PAL.green : '#4a4f6a', icon: 'coin' })) {
+      if (S.cash < ln.owed) { toast('NOT ENOUGH CASH', PAL.red); audio.sfx('error'); } else { S.cash -= ln.owed; S.loan = null; S.credit = Math.min(850, S.credit + 15); saveGame(); audio.sfx('cash'); toast('LOAN REPAID - CREDIT UP', PAL.green); }
+    }
+  } else LOANS.forEach((L, i) => {
+    const y = 50 + i * 46, amt = L.amt * loanMul(), ok = S.credit >= L.min;
+    rect(154, y, 220, 42, ok ? '#1a1e30' : '#15172a');
+    text(L.n, 160, y + 4, ok ? PAL.yellow : '#5a6080'); text(fmt$(amt), 368, y + 4, ok ? PAL.cash : '#5a6080', { align: 'right' });
+    text(Math.round(L.rate * 100) + '% - REPAY ' + fmt$(Math.round(amt * (1 + L.rate))) + ' IN ' + L.days + ' DAYS', 160, y + 15, ok ? '#c9ced8' : '#4a4f6a');
+    if (ok) { if (button('BORROW', 316, y + 25, 54, 13, { col: PAL.green })) dialog({ title: 'TAKE ' + L.n + '?', lines: ['Get ' + fmt$(amt) + ' now. ' + fmt$(Math.ceil(amt * (1 + L.rate) / L.days / 10) * 10) + ' is taken automatically every day for ' + L.days + ' days.', 'Miss 3 payments and your most valuable car gets repossessed.'], buttons: [{ label: 'NO THANKS', col: '#3a3f60' }, { label: 'BORROW', col: PAL.green, cb: () => takeLoan(i) }] }); }
+    else text('NEEDS ' + L.min + ' CREDIT', 368, y + 28, PAL.red, { align: 'right' });
+  });
+}
+
+// ---------- legend (prestige) ----------
+let PRESTIGE_CARRY = null;
+const canPrestige = () => !!(S.lvBeat && S.lvBeat[LEVELS.length - 1]);
+function drawLegend() {
+  const P = S.prestige || 0;
+  panel(4, 34, 376, 162, { title: 'LEGEND STATUS' + (P ? ' - LEGEND ' + P : '') });
+  icon('crown', 14, 52, P ? PAL.yellow : '#4a4f6a'); text(P ? 'LEGEND ' + P : 'NOT A LEGEND YET', 26, 52, P ? PAL.yellow : '#c9ced8', { s: 2 });
+  text('CURRENT BONUS: +' + (P * 10) + '% PRIZE MONEY, +' + fmt$(P * 5000) + ' START CASH', 14, 72, P ? PAL.green : PAL.dim);
+  text('NEXT LEGEND (' + (P + 1) + '): +' + ((P + 1) * 10) + '% PRIZE MONEY, +' + fmt$((P + 1) * 5000) + ' START CASH, BADGE', 14, 84, '#9ad0ff');
+  text('YOU KEEP', 14, 100, PAL.green);
+  ['Achievements & collection book', 'Ghosts, records & driver name', 'Login streak & credit rating'].forEach((l, i) => text('- ' + l, 14, 110 + i * 9, '#c9ced8'));
+  text('STARTS OVER', 200, 100, PAL.orange);
+  ['Cash, cars & garage upgrades', 'Career races & events', 'Loans (must be repaid first)'].forEach((l, i) => text('- ' + l, 200, 110 + i * 9, '#c9ced8'));
+  const ok = canPrestige() && !S.loan;
+  if (!canPrestige()) text('BEAT THE FINAL CAREER RACE (#' + LEVELS.length + ') TO BECOME A LEGEND', 192, 152, PAL.orange, { align: 'center' });
+  else if (S.loan) text('PAY OFF YOUR LOAN FIRST', 192, 152, PAL.red, { align: 'center' });
+  if (button('BECOME A LEGEND', 112, 168, 160, 18, { col: ok ? '#c8a020' : '#4a4f6a', icon: 'crown' })) {
+    if (!ok) audio.sfx('error');
+    else dialog({ title: 'BECOME LEGEND ' + (P + 1) + '?', lines: ['Your cash, cars, garage and career start over with a new starter car.', 'You keep your achievements, collection, ghosts and streak, and earn +' + ((P + 1) * 10) + '% prize money forever.'], buttons: [{ label: 'NOT YET', col: '#3a3f60' }, { label: 'DO IT', col: '#c8a020', cb: () => {
+      PRESTIGE_CARRY = { prestige: P + 1, ach: S.ach, seen: S.seen, owned: S.owned, codes: S.codes, topSpd: S.topSpd, ghosts: S.ghosts, ghostIn: S.ghostIn, streak: S.streak, weekly: S.weekly, driver: S.driver, credit: S.credit, stats: S.stats, flags: S.flags };
+      go(starterScene());
+    } }] });
+  }
+}
+function applyPrestigeCarry() {
+  if (!PRESTIGE_CARRY) return;
+  Object.assign(S, PRESTIGE_CARRY); S.cash += 5000 * S.prestige; PRESTIGE_CARRY = null;
+  setTimeout(() => { toast('WELCOME BACK, LEGEND ' + S.prestige + '!', PAL.yellow); audio.sfx('level'); }, 600);
+}
+
+// ---------- barn-find surprises ----------
+const SECRETS_BAD = [
+  { n: 'CRACKED ENGINE BLOCK', d: 'The seller hid a cracked block. The engine needs serious work.', f: c => { c.comp.engine = Math.min(c.comp.engine, 0.18); } },
+  { n: 'SLIPPING TRANSMISSION', d: 'The gearbox grinds and slips in every gear.', f: c => { c.comp.trans = Math.min(c.comp.trans, 0.2); } },
+  { n: 'FRAME RUST', d: 'Underneath, the frame is crumbling with rust.', f: c => { if (c.comp.body !== undefined) c.comp.body = Math.min(c.comp.body, 0.15); } },
+  { n: 'SEIZED BRAKES', d: 'The brakes are rusted solid.', f: c => { if (c.comp.brakes !== undefined) c.comp.brakes = Math.min(c.comp.brakes, 0.1); } },
+  { n: 'FLOOD DAMAGE', d: 'This car spent time underwater. Everything is worse than it looked.', f: c => { for (const k in c.comp) c.comp[k] = Math.round(c.comp[k] * 0.7 * 100) / 100; c.dirt = 1; } },
+];
+const SECRETS_GOOD = [
+  { n: 'MATCHING NUMBERS!', d: 'Original factory engine and paint. Collectors will pay 30% more for it.', f: c => { c.gem = 1.3; } },
+  { n: 'GENUINE LOW MILES', d: 'The odometer was right all along - barely driven!', f: c => { c.mileage = Math.round(c.mileage / 4); } },
+  { n: 'HIDDEN RACE PARTS', d: 'Someone built this engine before it was parked. Free engine upgrade!', f: c => { c.up.engine = Math.max(c.up.engine | 0, 2); } },
+  { n: 'RARE FACTORY COLOR', d: 'A one-year-only paint code. Worth 15% more.', f: c => { c.gem = 1.15; } },
+];
+function rollSecret(src) {
+  const bad = src === 'junk' ? 0.4 : src === 'auction' ? 0.25 : 0, good = src === 'junk' ? 0.15 : src === 'auction' ? 0.12 : 0;
+  const r = Math.random();
+  if (r < bad) return { bad: 1, i: Math.floor(Math.random() * SECRETS_BAD.length) };
+  if (r < bad + good) return { bad: 0, i: Math.floor(Math.random() * SECRETS_GOOD.length) };
+  return null;
+}
+function revealSecret(car) {
+  if (!car.secret || car.secret.shown || car.listed || !S.cars.includes(car)) return;
+  const s = (car.secret.bad ? SECRETS_BAD : SECRETS_GOOD)[car.secret.i]; car.secret.shown = 1; s.f(car); saveGame();
+  audio.sfx(car.secret.bad ? 'error' : 'win');
+  dialog({ title: car.secret.bad ? 'INSPECTION: BAD NEWS' : 'INSPECTION: JACKPOT!', lines: [s.n, s.d, car.secret.bad ? 'That\'s the gamble of junkyard and auction cars...' : 'Junkyard luck is on your side!'], buttons: [{ label: 'OK', col: car.secret.bad ? '#3a3f60' : PAL.green }] });
+}
+
+// ---------- save backup ----------
+function exportSave() {
+  saveGame();
+  const raw = localStorage.getItem(SAVE_KEY);
+  if (!raw) { toast('NO SAVE TO EXPORT', PAL.red); return; }
+  domBox({ title: 'BACK UP YOUR SAVE', readonly: true, value: 'PMS1' + b64e(raw), file: 'pixel-motors-save-day' + S.day + '.txt', note: 'Copy this code or download it. If your browser ever loses your progress, use IMPORT SAVE to get everything back.' });
+}
+function importSave() {
+  domBox({ title: 'RESTORE A SAVE', placeholder: 'Paste your PMS1... save code', okLabel: 'RESTORE', note: 'This replaces your current progress with the backup.',
+    onOk(v) {
+      v = v.replace(/\s+/g, ''); if (!v.startsWith('PMS1')) return 'THAT IS NOT A PIXEL MOTORS SAVE CODE';
+      let raw; try { raw = b64d(v.slice(4)); const o = JSON.parse(raw); if (!o || o.v !== 1 || !Array.isArray(o.cars)) return 'SAVE CODE IS DAMAGED'; } catch (e) { return 'SAVE CODE IS DAMAGED'; }
+      localStorage.setItem(SAVE_KEY, raw); if (loadGame()) { toast('SAVE RESTORED - DAY ' + S.day, PAL.green); audio.sfx('level'); go(garageScene()); } else return 'COULD NOT LOAD THAT SAVE';
+    } });
+}
+
+// ---------- install as an app (GitHub Pages site only) ----------
+let _installEvt = null;
+if (/github\.io$/.test(location.hostname)) {
+  const ln = document.createElement('link'); ln.rel = 'manifest'; ln.href = 'manifest.json'; document.head.appendChild(ln);
+  const ai = document.createElement('link'); ai.rel = 'apple-touch-icon'; ai.href = 'icon-192.png'; document.head.appendChild(ai);
+  if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { }));
+}
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); _installEvt = e; });
+function installApp() {
+  if (_installEvt) { _installEvt.prompt(); _installEvt = null; return; }
+  if (window.matchMedia && matchMedia('(display-mode: standalone)').matches) { toast('ALREADY INSTALLED - PLAYING AS AN APP!', PAL.green); return; }
+  dialog({ title: 'INSTALL PIXEL MOTORS', lines: [/iPhone|iPad/.test(navigator.userAgent) ? 'On iPhone/iPad: tap the Share button in Safari, then "Add to Home Screen".' : 'Open the game website in Chrome or Edge, then use the install icon in the address bar (or menu > Install app).', 'Once installed it opens full screen and works offline.'], buttons: [{ label: 'OK', col: PAL.green }] });
+}
+
+// ---------- office panels: weekly + streak, collection sets ----------
+function drawWeekly() {
+  checkWeekly();
+  const st = S.streak || { n: 0, best: 0 };
+  panel(4, 34, 376, 112, { title: 'WEEKLY CHALLENGES' });
+  const d = new Date(), left = 7 - ((d.getDay() + 6) % 7);
+  text('RESETS IN ' + left + ' DAY' + (left > 1 ? 'S' : ''), 374, 37, PAL.dim, { align: 'right' });
+  S.weekly.list.forEach((w, i) => {
+    const y = 52 + i * 26;
+    rect(10, y - 3, 364, 23, w.done ? '#2a3a22' : '#1a1e30');
+    icon(w.done ? 'check' : 'trophy', 16, y + 4, w.done ? PAL.green : PAL.yellow);
+    text(w.t, 30, y, '#e8ecff'); bar(30, y + 10, 200, 6, w.p / w.n, w.done ? PAL.green : '#c8a020');
+    text(w.p + '/' + w.n, 236, y + 9, PAL.dim); text(w.done ? 'PAID' : fmt$(w.r) + ' +10 REP', 368, y + 4, w.done ? PAL.green : PAL.cash, { align: 'right' });
+  });
+  text(S.weekly.chest ? 'WEEKLY CHEST OPENED!' : 'FINISH ALL 3 TO OPEN THE WEEKLY CHEST: BIG CASH + RARE PART', 192, 132, S.weekly.chest ? PAL.green : PAL.yellow, { align: 'center' });
+  panel(4, 150, 376, 46, { title: 'LOGIN STREAK' });
+  for (let i = 0; i < 7; i++) { const on = st.n && i < ((st.n - 1) % 7) + 1; rect(10 + i * 30, 166, 26, 22, on ? '#3a6a3a' : '#1a1e30'); text('D' + (i + 1), 23 + i * 30, 169, on ? '#e8ecff' : '#5a6080', { align: 'center' }); icon(on ? 'check' : i === 6 ? 'crown' : 'coin', 19 + i * 30, 177, on ? PAL.green : '#5a6080'); }
+  text('STREAK ' + st.n + ' DAY' + (st.n === 1 ? '' : 'S') + '   BEST ' + st.best, 230, 167, PAL.yellow);
+  text('PLAY DAILY - DAY 7 = JACKPOT!', 230, 179, PAL.dim);
+}
+function drawSets() {
+  panel(4, 34, 376, 162, { title: 'COLLECTION SETS - OWN EVERY VEHICLE IN A SET FOR A PERMANENT BONUS' });
+  SETS.forEach((s, i) => {
+    const y = 50 + i * 24, got = setGot(s), tot = setIds(s).length, done = got >= tot;
+    rect(10, y, 364, 22, done ? '#2a3a22' : '#1a1e30');
+    icon(done ? 'trophy' : 'lock', 14, y + 7, done ? PAL.yellow : '#5a6080');
+    text(s.n, 26, y + 3, done ? PAL.yellow : '#e8ecff'); text(s.b, 26, y + 12, done ? PAL.green : PAL.dim);
+    bar(200, y + 8, 110, 6, got / tot, done ? PAL.green : PAL.blue); text(got + '/' + tot, 368, y + 7, done ? PAL.green : '#c9ced8', { align: 'right' });
+  });
+}
+
+// ---------- per-gear ratio tuner (dyno screen) ----------
+function drawGearTuner(car, p, gx, gy, gw, gh) {
+  const n = p.ratios.length; car.tune.g = car.tune.g || [];
+  rect(gx, gy, gw, gh, '#0c0e16');
+  const cw = gw / n, maxR = Math.max(...p.ratios) * 1.08, wRed = p.rl * TAU / 60;
+  for (let i = 0; i < n; i++) {
+    const x = gx + i * cw, v = car.tune.g[i] || 1, r = p.ratios[i];
+    const h = Math.round(r / maxR * (gh - 26)), kmh = Math.round(wRed * p.r / (r * p.final) * 3.6);
+    const col = v > 1.005 ? '#ff8a2a' : v < 0.995 ? '#4aa8ff' : '#5fd35a';
+    rect(x + 3, gy + gh - 10 - h, cw - 6, h, col); hline(x + 3, gy + gh - 10 - h, cw - 6, '#ffffff');
+    text(String(i + 1), x + cw / 2, gy + gh - 8, '#e8ecff', { align: 'center' });
+    text(String(kmh), x + cw / 2, gy + gh - 18 - h, PAL.dim, { align: 'center' });
+    if (input.down && input.x >= x && input.x < x + cw && input.y >= gy && input.y < gy + gh) {
+      const nv = clamp(1.2 - (input.y - gy) / gh * 0.4, 0.8, 1.2); car.tune.g[i] = Math.round(nv * 100) / 100;
+    }
+  }
+  text('UP=QUICKER DOWN=FASTER (KM/H)', gx + gw / 2, gy + gh + 2, '#9ad0ff', { align: 'center' });
 }
 
 }

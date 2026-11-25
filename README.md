@@ -11,3 +11,6 @@ Open `index.html` in a browser (sound works best when served, e.g. `npx serve .`
 2. In Vercel: **Add New → Project → Import** the repository.
 3. Framework preset: **Other**. Leave build command and output directory empty.
 4. Click **Deploy**. Every push to the main branch redeploys automatically.
+
+## Install as an app
+On the GitHub Pages site the game can be installed (Settings > INSTALL APP, or the browser's install button) and works offline.
